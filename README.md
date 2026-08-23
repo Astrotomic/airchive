@@ -78,11 +78,3 @@ php artisan test
 ```
 
 Search full-text behavior is exercised against PostgreSQL in production. Tests use SQLite with a LIKE fallback for portability.
-
-## Project layout
-
-- `app/Services/Import/` — format detection, ChatGPT/Cursor importers, canonical writer
-- `app/Services/Search/` — `ConversationSearchService`
-- `app/Managers/Exports/` — conversation export manager and format drivers
-- `app/Actions/Auth/` — TOTP enrollment and verification
-- `resources/views/components/` — Livewire 4 page components
