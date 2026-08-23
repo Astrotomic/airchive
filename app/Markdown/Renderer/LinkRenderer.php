@@ -3,6 +3,7 @@
 namespace App\Markdown\Renderer;
 
 use App\Managers\Favicons\FaviconManager;
+use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 use League\CommonMark\Extension\CommonMark\Node\Inline\Link;
 use League\CommonMark\Node\Node;
@@ -53,10 +54,10 @@ final readonly class LinkRenderer implements NodeRendererInterface
         }
 
         $fallback = new HtmlElement(
-            'span',
-            ['class' => 'markdown-link-chip__favicon', 'aria-hidden' => 'true'],
-            [
-                $this->escape(Str::upper(Str::substr($host, 0, 1))),
+            tagName: 'span',
+            attributes: ['class' => 'markdown-link-chip__favicon', 'aria-hidden' => 'true'],
+            contents: [
+                new HtmlString($this->escape(Str::upper(Str::substr($host, 0, 1)))),
                 new HtmlElement('img', [
                     'src' => $this->favicons->url($host),
                     'alt' => '',
