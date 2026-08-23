@@ -7,9 +7,9 @@ use App\Models\Conversation;
 use Illuminate\Database\Eloquent\Builder;
 
 /** @extends Builder<Conversation> */
-class ConversationBuilder extends Builder
+final class ConversationBuilder extends Builder
 {
-    public function search(string $search): static
+    public function search(string $search): self
     {
         $search = trim($search);
 
@@ -35,7 +35,7 @@ class ConversationBuilder extends Builder
         });
     }
 
-    public function wherePlatform(?string $platform): static
+    public function wherePlatform(?string $platform): self
     {
         if (blank($platform)) {
             return $this;
@@ -48,7 +48,7 @@ class ConversationBuilder extends Builder
         return $this->where('source_platform', $platform);
     }
 
-    public function whereProject(int|string|null $project): static
+    public function whereProject(int|string|null $project): self
     {
         if (blank($project)) {
             return $this;
@@ -65,7 +65,7 @@ class ConversationBuilder extends Builder
         return $this->whereRaw('1 = 0');
     }
 
-    public function latestByMessage(): static
+    public function latestByMessage(): self
     {
         $lastMessageColumn = $this->getModel()->qualifyColumn('last_message_at');
 

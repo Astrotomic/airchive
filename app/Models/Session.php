@@ -60,8 +60,8 @@ class Session extends Model
     /** @return Attribute<IpInfo|null, never> */
     protected function ipInfo(): Attribute
     {
-        return Attribute::get(
-            fn (): ?IpInfo => filled($this->ip_address)
+        return Attribute::make(
+            get: fn (): ?IpInfo => filled($this->ip_address)
                 ? IpInfo::fetch((string) $this->ip_address)
                 : null,
         )->shouldCache();

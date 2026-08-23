@@ -24,6 +24,7 @@ abstract class BaseCollection extends Collection
 
     /**
      * @param  static|iterable<TKey, TValue>  $source
+     * @return static<TKey, TValue>
      */
     public function concat($source): static
     {
@@ -31,16 +32,34 @@ abstract class BaseCollection extends Collection
     }
 
     /**
-     * @param  (callable(TValue, TKey): string)|array|string  $groupBy
+     * @template TGroupKey of array-key|\UnitEnum|\Stringable
+     *
+     * @param  (callable(TValue, TKey): TGroupKey)|string  $groupBy
      * @param  bool  $preserveKeys
-     * @return Collection<string, static>
+     * @return Collection<
+     *     ($groupBy is string
+     *         ? array-key
+     *         : (TGroupKey is \UnitEnum ? array-key : (TGroupKey is \Stringable ? string : array-key))),
+     *     static<($preserveKeys is true ? TKey : int), TValue>
+     * >
      */
     public function groupBy($groupBy, $preserveKeys = false): Collection
     {
         return $this
             ->toBase()
             ->groupBy($groupBy, $preserveKeys)
-            ->map(fn (Collection $lines) => new static($lines));
+            ->map(fn (Collection $lines): static => $this->newGroup($lines));
+    }
+
+    /**
+     * @template TGroupItemKey of array-key
+     *
+     * @param  Collection<TGroupItemKey, TValue>  $lines
+     * @return static<TGroupItemKey, TValue>
+     */
+    private function newGroup(Collection $lines): static
+    {
+        return new static($lines);
     }
 
     /**

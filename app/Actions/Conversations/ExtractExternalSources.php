@@ -32,7 +32,13 @@ class ExtractExternalSources extends Action
         }
 
         return collect($sources)
-            ->map(fn (array $source): array => collect($source)->except('label_priority')->all())
+            ->map(fn (array $source): array => [
+                'url' => $source['url'],
+                'label' => $source['label'],
+                'host' => $source['host'],
+                'group_host' => $source['group_host'],
+                'path' => $source['path'],
+            ])
             ->values();
     }
 

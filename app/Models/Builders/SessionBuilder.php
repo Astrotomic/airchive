@@ -6,7 +6,7 @@ use App\Models\Session;
 use Illuminate\Database\Eloquent\Builder;
 
 /** @extends Builder<Session> */
-class SessionBuilder extends Builder
+final class SessionBuilder extends Builder
 {
     public function revoke(string $sessionId): bool
     {

@@ -73,7 +73,7 @@ class Attachment extends Model
     /** @return Attribute<AttachmentCategory, never> */
     protected function category(): Attribute
     {
-        return Attribute::get(function (): AttachmentCategory {
+        return Attribute::make(get: function (): AttachmentCategory {
             $mime = Str::lower($this->mime_type ?? '');
             $extension = Str::lower(pathinfo($this->filename ?? '', PATHINFO_EXTENSION));
             $type = $this->attachment_type ?? AttachmentType::File;
