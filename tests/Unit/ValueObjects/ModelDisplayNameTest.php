@@ -5,9 +5,9 @@ namespace Tests\Unit\ValueObjects;
 use App\ValueObjects\ModelDisplayName;
 use PHPUnit\Framework\Assert;
 use PHPUnit\Framework\Attributes\DataProvider;
-use PHPUnit\Framework\TestCase;
+use Tests\UnitTestCase;
 
-class ModelDisplayNameTest extends TestCase
+class ModelDisplayNameTest extends UnitTestCase
 {
     #[DataProvider('modelNames')]
     public function test_it_formats_model_slugs_for_display(string $slug, string $expected): void
@@ -33,6 +33,7 @@ class ModelDisplayNameTest extends TestCase
             'auto' => ['auto', 'Auto'],
             'research' => ['research', 'Research'],
             'legacy text Davinci' => ['text-davinci-002-render-sha', 'Text Davinci 002'],
+            'unknown GPT variant' => ['gpt-5-pro', 'gpt-5-pro'],
             'unknown slug' => ['gpt-image-test', 'gpt-image-test'],
         ];
     }

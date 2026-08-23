@@ -88,6 +88,7 @@
             "@php artisan ide-helper:models --write --dir=app/Models --ansi --reset --no-interaction --quiet",
             "@composer fix"
         ],
+        "coverage": "XDEBUG_MODE=coverage ./vendor/bin/phpunit --compact --coverage-html=.coverage",
         "normalize": "echo 'composer global require ergebnis/composer-normalize'",
         "phpstan": "@php vendor/bin/phpstan analyse --memory-limit=2G",
         "phpstan-baseline": "@php vendor/bin/phpstan analyse --memory-limit=2G --allow-empty-baseline --generate-baseline",

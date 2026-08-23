@@ -8,14 +8,14 @@ use Astrotomic\PhpunitAssertions\PathAssertions;
 use Astrotomic\PhpunitAssertions\UrlAssertions;
 use PHPUnit\Framework\Assert;
 use PHPUnit\Framework\Attributes\DataProvider;
-use PHPUnit\Framework\TestCase;
+use Tests\UnitTestCase;
 
-class AttachmentTest extends TestCase
+class AttachmentTest extends UnitTestCase
 {
     #[DataProvider('byteSizes')]
     public function test_it_formats_its_byte_size_for_humans(?int $bytes, string $expected): void
     {
-        $attachment = new Attachment(['byte_size' => $bytes]);
+        $attachment = (new Attachment)->forceFill(['byte_size' => $bytes]);
 
         Assert::assertSame($expected, $attachment->human_size);
     }
@@ -32,7 +32,7 @@ class AttachmentTest extends TestCase
     #[DataProvider('categories')]
     public function test_it_resolves_its_category(array $attributes, AttachmentCategory $expected): void
     {
-        $attachment = new Attachment($attributes);
+        $attachment = (new Attachment)->forceFill($attributes);
 
         Assert::assertSame($expected, $attachment->category);
     }
@@ -60,7 +60,7 @@ class AttachmentTest extends TestCase
 
     public function test_it_resolves_its_extension_label(): void
     {
-        $attachment = new Attachment(['filename' => 'data.json']);
+        $attachment = (new Attachment)->forceFill(['filename' => 'data.json']);
 
         PathAssertions::assertExtension('json', $attachment->filename);
         Assert::assertSame('JSON', $attachment->extension_label);
@@ -69,14 +69,14 @@ class AttachmentTest extends TestCase
 
     public function test_it_resolves_whether_its_contents_are_available(): void
     {
-        $stored = new Attachment(['storage_path' => 'attachments/file.txt']);
-        $external = new Attachment(['external_url' => 'https://example.com/file.txt']);
+        $stored = (new Attachment)->forceFill(['storage_path' => 'attachments/file.txt']);
+        $external = (new Attachment)->forceFill(['external_url' => 'https://example.com/file.txt']);
 
         PathAssertions::assertExtension('txt', $stored->storage_path);
         Assert::assertTrue($stored->is_available);
         UrlAssertions::assertValidLoose($external->external_url);
         Assert::assertTrue($external->is_available);
-        Assert::assertFalse((new Attachment(['external_url' => 'javascript:alert(1)']))->is_available);
+        Assert::assertFalse((new Attachment)->forceFill(['external_url' => 'javascript:alert(1)'])->is_available);
         Assert::assertFalse((new Attachment)->is_available);
     }
 }

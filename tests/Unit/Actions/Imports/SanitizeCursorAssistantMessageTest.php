@@ -4,17 +4,27 @@ namespace Tests\Unit\Actions\Imports;
 
 use App\Actions\Imports\SanitizeCursorAssistantMessage;
 use PHPUnit\Framework\Assert;
-use Tests\TestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
+use Tests\UnitTestCase;
 
-class SanitizeCursorAssistantMessageTest extends TestCase
+class SanitizeCursorAssistantMessageTest extends UnitTestCase
 {
-    public function test_removes_redacted_markers_from_assistant_messages(): void
+    #[DataProvider('messages')]
+    public function test_removes_redacted_markers_from_assistant_messages(string $message, string $expected): void
     {
-        $raw = "Planning next steps.\n\n[REDACTED]\n\nMore visible text.";
+        Assert::assertSame($expected, SanitizeCursorAssistantMessage::make()->execute($message));
+    }
 
-        Assert::assertSame(
+    /** @return iterable<string, array{string, string}> */
+    public static function messages(): iterable
+    {
+        yield 'standalone marker' => [
+            "Planning next steps.\n\n[REDACTED]\n\nMore visible text.",
             "Planning next steps.\n\nMore visible text.",
-            SanitizeCursorAssistantMessage::make()->execute($raw),
-        );
+        ];
+        yield 'inline marker' => ['Visible [REDACTED] text', 'Visible  text'];
+        yield 'case insensitive marker' => ['[redacted]', ''];
+        yield 'collapses excessive blank lines' => ["First\n\n\n\nSecond", "First\n\nSecond"];
+        yield 'trims output' => ["  Visible  \n", 'Visible'];
     }
 }

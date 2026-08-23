@@ -28,3 +28,5 @@ Thumbs.db
 package-lock.json
 *.lock
 /.phpstan-tmp/
+/.phpstan/
+/.coverage/
