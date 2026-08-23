@@ -13,6 +13,7 @@ use App\ValueObjects\CanonicalContentBlock;
 use App\ValueObjects\CanonicalConversation;
 use App\ValueObjects\CanonicalConversationSource;
 use App\ValueObjects\CanonicalMessage;
+use App\ValueObjects\Fluent;
 use App\ValueObjects\ImportContext;
 use Carbon\Carbon;
 use Illuminate\Support\Str;
@@ -38,35 +39,33 @@ class ParseCursorJsonlConversation extends Action
         $lastCreatedAt = null;
 
         $messages = $lines->map(function (string $line, int $index) use ($ctx, &$previousMessageId, &$conversationId, &$title, &$lastCreatedAt): CanonicalMessage {
-            $row = json_decode($line, true);
+            $row = Fluent::tryFrom($line);
 
-            if (! is_array($row)) {
+            if ($row === null) {
                 throw new InvalidArgumentException('Cursor JSONL export contains invalid JSON on line '.($index + 1).'.');
             }
 
             $conversationId ??= $this->resolveConversationId($row, $ctx);
-            $title ??= $this->resolveTitle($row, $ctx);
+            $title ??= $this->resolveTitle($row);
 
-            $sourceMessageId = (string) (
-                $row['id']
-                ?? $row['message_id']
-                ?? $row['uuid']
+            $sourceMessageId = (
+                $row->scalarString('id')
+                ?? $row->scalarString('message_id')
+                ?? $row->scalarString('uuid')
                 ?? 'line-'.($index + 1)
             );
 
-            $parentSourceMessageId = isset($row['parent_message_id'])
-                ? (string) $row['parent_message_id']
-                : (isset($row['parent_id']) ? (string) $row['parent_id'] : $previousMessageId);
+            $parentSourceMessageId = $row->scalarString('parent_message_id')
+                ?? $row->scalarString('parent_id')
+                ?? $previousMessageId;
 
-            $sourceRole = $row['role'] ?? $row['type'] ?? null;
+            $sourceRole = $row->get('role') ?? $row->get('type');
             $role = MessageRole::normalize($sourceRole);
-            $actorName = isset($row['name']) ? (string) $row['name'] : null;
+            $actorName = $row->nullString('name');
 
-            $contentItems = $row['message']['content'] ?? $row['content'] ?? [];
-
-            if (! is_array($contentItems)) {
-                $contentItems = [];
-            }
+            $contentItems = $row->nullArray('message.content')
+                ?? $row->nullArray('content')
+                ?? [];
 
             $explicitCreatedAt = $this->resolveExplicitCreatedAt($row, $contentItems);
             if ($explicitCreatedAt !== null) {
@@ -98,7 +97,7 @@ class ParseCursorJsonlConversation extends Action
                 isHidden: $isHidden,
                 blocks: $blocks,
                 metadata: [
-                    ...(is_array($row['metadata'] ?? null) ? $row['metadata'] : []),
+                    ...($row->nullArray('metadata') ?? []),
                     ...($role === MessageRole::Unknown && is_string($sourceRole)
                         ? ['_source_role' => $sourceRole]
                         : []),
@@ -128,13 +127,15 @@ class ParseCursorJsonlConversation extends Action
     }
 
     /**
-     * @param  array<string, mixed>  $row
+     * Resolve a stable conversation identifier from one untrusted transcript row.
      */
-    private function resolveConversationId(array $row, ImportContext $ctx): string
+    private function resolveConversationId(Fluent $row, ImportContext $ctx): string
     {
         foreach (['session_id', 'conversation_id', 'chat_id', 'composer_id'] as $key) {
-            if (! empty($row[$key])) {
-                return (string) $row[$key];
+            $identifier = $row->scalarString($key);
+
+            if (filled($identifier)) {
+                return $identifier;
             }
         }
 
@@ -159,13 +160,15 @@ class ParseCursorJsonlConversation extends Action
     }
 
     /**
-     * @param  array<string, mixed>  $row
+     * Resolve a human-provided title without coercing non-string source data.
      */
-    private function resolveTitle(array $row, ImportContext $ctx): ?string
+    private function resolveTitle(Fluent $row): ?string
     {
         foreach (['title', 'conversation_title', 'name'] as $key) {
-            if (! empty($row[$key]) && is_string($row[$key])) {
-                return $row[$key];
+            $title = $row->nullString($key);
+
+            if ($title !== null) {
+                return $title;
             }
         }
 
@@ -205,7 +208,8 @@ class ParseCursorJsonlConversation extends Action
                 continue;
             }
 
-            $type = (string) ($item['type'] ?? 'text');
+            $item = new Fluent($item);
+            $type = $item->nullString('type') ?? 'text';
 
             $block = match ($type) {
                 'text' => $this->textBlock($item, $position, $role),
@@ -235,11 +239,14 @@ class ParseCursorJsonlConversation extends Action
     }
 
     /**
-     * @param  array<string, mixed>  $item
+     * Parse one untrusted text content item.
      */
-    private function textBlock(array $item, int $position, MessageRole $role): ?CanonicalContentBlock
+    private function textBlock(Fluent $item, int $position, MessageRole $role): ?CanonicalContentBlock
     {
-        $text = $this->sanitizeTextForRole((string) ($item['text'] ?? $item['content'] ?? ''), $role);
+        $text = $this->sanitizeTextForRole(
+            $item->nullString('text') ?? $item->nullString('content') ?? '',
+            $role,
+        );
 
         if (trim($text) === '') {
             return null;
@@ -249,23 +256,23 @@ class ParseCursorJsonlConversation extends Action
             position: $position,
             blockType: BlockType::Text,
             textContent: $text,
-            structuredContent: $item,
+            structuredContent: $item->all(),
         );
     }
 
     /**
-     * @param  array<string, mixed>  $item
+     * Parse one untrusted tool-use content item.
      */
-    private function toolUseBlock(array $item, int $position): ?CanonicalContentBlock
+    private function toolUseBlock(Fluent $item, int $position): ?CanonicalContentBlock
     {
-        $name = (string) ($item['name'] ?? 'tool');
-        $input = $item['input'] ?? null;
+        $name = $item->nullString('name') ?? 'tool';
+        $input = $item->get('input');
 
         return new CanonicalContentBlock(
             position: $position,
             blockType: BlockType::ToolUse,
             textContent: BuildCursorToolSearchText::make()->execute($name, $input),
-            structuredContent: $item,
+            structuredContent: $item->all(),
             metadata: [
                 'tool_name' => $name,
                 'collapsed_by_default' => true,
@@ -274,14 +281,14 @@ class ParseCursorJsonlConversation extends Action
     }
 
     /**
-     * @param  array<string, mixed>  $item
+     * Parse one untrusted tool-result content item.
      */
-    private function toolResultBlock(array $item, int $position): ?CanonicalContentBlock
+    private function toolResultBlock(Fluent $item, int $position): ?CanonicalContentBlock
     {
-        $name = (string) ($item['name'] ?? 'tool_result');
-        $output = $item['output'] ?? $item['content'] ?? null;
+        $name = $item->nullString('name') ?? 'tool_result';
+        $output = $item->get('output') ?? $item->get('content');
 
-        if ($output === null && ! isset($item['text'])) {
+        if ($output === null && ! $item->has('text')) {
             return null;
         }
 
@@ -289,7 +296,7 @@ class ParseCursorJsonlConversation extends Action
             position: $position,
             blockType: BlockType::ToolResult,
             textContent: BuildCursorToolSearchText::make()->execute($name, is_array($output) ? $output : ['output' => $output]),
-            structuredContent: $item,
+            structuredContent: $item->all(),
             metadata: [
                 'tool_name' => $name,
                 'collapsed_by_default' => true,
@@ -298,13 +305,16 @@ class ParseCursorJsonlConversation extends Action
     }
 
     /**
-     * @param  array<string, mixed>  $item
+     * Parse one untrusted reasoning content item.
      */
-    private function thinkingBlock(array $item, int $position): ?CanonicalContentBlock
+    private function thinkingBlock(Fluent $item, int $position): ?CanonicalContentBlock
     {
-        $text = (string) ($item['thinking'] ?? $item['text'] ?? $item['content'] ?? '');
+        $text = $item->nullString('thinking')
+            ?? $item->nullString('text')
+            ?? $item->nullString('content')
+            ?? '';
 
-        if ($this->isBlank($text, $item)) {
+        if ($this->isBlank($text, $item->all())) {
             return null;
         }
 
@@ -312,19 +322,22 @@ class ParseCursorJsonlConversation extends Action
             position: $position,
             blockType: BlockType::Reasoning,
             textContent: $text,
-            structuredContent: $item,
+            structuredContent: $item->all(),
             metadata: ['hidden_by_default' => true],
         );
     }
 
     /**
-     * @param  array<string, mixed>  $item
+     * Parse one untrusted image content item.
      */
-    private function imageBlock(array $item, int $position): ?CanonicalContentBlock
+    private function imageBlock(Fluent $item, int $position): ?CanonicalContentBlock
     {
-        $url = (string) ($item['url'] ?? $item['image_url'] ?? $item['source']['url'] ?? '');
+        $url = $item->nullString('url')
+            ?? $item->nullString('image_url')
+            ?? $item->nullString('source.url')
+            ?? '';
 
-        if ($this->isBlank($url, $item)) {
+        if ($this->isBlank($url, $item->all())) {
             return null;
         }
 
@@ -332,23 +345,23 @@ class ParseCursorJsonlConversation extends Action
             position: $position,
             blockType: BlockType::Image,
             textContent: $url,
-            structuredContent: $item,
+            structuredContent: $item->all(),
             attachments: [new CanonicalAttachment(
                 attachmentType: AttachmentType::Image,
                 externalUrl: $url,
-                sourceRef: $item,
+                sourceRef: $item->all(),
             )],
         );
     }
 
     /**
-     * @param  array<string, mixed>  $item
+     * Preserve one otherwise unknown untrusted content item.
      */
-    private function otherBlock(array $item, int $position, string $type): ?CanonicalContentBlock
+    private function otherBlock(Fluent $item, int $position, string $type): ?CanonicalContentBlock
     {
-        $text = (string) ($item['text'] ?? $item['content'] ?? '');
+        $text = $item->nullString('text') ?? $item->nullString('content') ?? '';
 
-        if ($this->isBlank($text, $item)) {
+        if ($this->isBlank($text, $item->all())) {
             return null;
         }
 
@@ -356,7 +369,7 @@ class ParseCursorJsonlConversation extends Action
             position: $position,
             blockType: BlockType::Other,
             textContent: $text !== '' ? $text : null,
-            structuredContent: $item,
+            structuredContent: $item->all(),
             metadata: ['source_type' => $type],
         );
     }
@@ -388,16 +401,14 @@ class ParseCursorJsonlConversation extends Action
     }
 
     /**
-     * @param  array<string, mixed>  $row
      * @param  array<int, mixed>  $contentItems
      */
-    private function resolveExplicitCreatedAt(array $row, array $contentItems): ?Carbon
+    private function resolveExplicitCreatedAt(Fluent $row, array $contentItems): ?Carbon
     {
         $createdAt = $this->parseTimestamp(
-            $row['timestamp']
-            ?? $row['created_at']
-            ?? $row['createdAt']
-            ?? null,
+            $row->get('timestamp')
+            ?? $row->get('created_at')
+            ?? $row->get('createdAt'),
         );
 
         if ($createdAt !== null) {
@@ -427,7 +438,8 @@ class ParseCursorJsonlConversation extends Action
                 continue;
             }
 
-            $text = (string) ($item['text'] ?? $item['content'] ?? '');
+            $item = new Fluent($item);
+            $text = $item->nullString('text') ?? $item->nullString('content') ?? '';
 
             if ($text === '') {
                 continue;

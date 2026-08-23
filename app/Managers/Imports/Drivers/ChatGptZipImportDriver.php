@@ -5,6 +5,7 @@ namespace App\Managers\Imports\Drivers;
 use App\Actions\Imports\ParseChatGptConversation;
 use App\Actions\Imports\WriteCanonicalConversation;
 use App\Actions\Projects\ExtractProjectIdentifiers;
+use App\Collections\FluentCollection;
 use App\Contracts\ConversationImportDriver;
 use App\Enums\AttachmentType;
 use App\Enums\BlockType;
@@ -20,9 +21,9 @@ use App\ValueObjects\CanonicalContentBlock;
 use App\ValueObjects\CanonicalConversation;
 use App\ValueObjects\CanonicalConversationSource;
 use App\ValueObjects\CanonicalMessage;
+use App\ValueObjects\Fluent;
 use App\ValueObjects\ImportContext;
 use Generator;
-use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Symfony\Component\Mime\MimeTypes;
@@ -105,7 +106,7 @@ final class ChatGptZipImportDriver implements ConversationImportDriver
                 rawChecksum: $checksum,
                 sourceFile: 'codex.json',
             );
-            $canonical = $this->parseCodexConversation($codexConversation, $context);
+            $canonical = $this->parseCodexConversation($codexConversation->all(), $context);
             $conversation = WriteCanonicalConversation::make()->execute($context, $canonical);
 
             $this->storeConversationAttachments($conversation, $checksum);
@@ -156,19 +157,18 @@ final class ChatGptZipImportDriver implements ConversationImportDriver
     ): void {
         foreach ($this->libraryFiles() as $libraryFile) {
             $sourceId = $this->sourceId(
-                $libraryFile['file_id']
-                ?? $libraryFile['id']
-                ?? null,
+                $libraryFile->get('file_id')
+                ?? $libraryFile->get('id'),
             );
 
             if ($sourceId === null) {
                 continue;
             }
 
-            $filename = isset($libraryFile['file_name'])
-                ? Str::limit((string) $libraryFile['file_name'], 255, '')
+            $filename = ($sourceFilename = $libraryFile->nullString('file_name')) !== null
+                ? Str::limit($sourceFilename, 255, '')
                 : null;
-            $mimeType = isset($libraryFile['mime_type']) ? (string) $libraryFile['mime_type'] : null;
+            $mimeType = $libraryFile->nullString('mime_type');
             $stored = $this->storeAsset(
                 $sourceId,
                 $batch->user_id,
@@ -190,14 +190,13 @@ final class ChatGptZipImportDriver implements ConversationImportDriver
                         'filename' => $filename ?: $attachment->filename,
                         'mime_type' => $mimeType ?: $attachment->mime_type,
                         'byte_size' => $stored['byte_size']
-                            ?? (is_numeric($libraryFile['file_size_bytes'] ?? null)
-                                ? (int) $libraryFile['file_size_bytes']
-                                : $attachment->byte_size),
+                            ?? $libraryFile->nullInteger('file_size_bytes')
+                            ?? $attachment->byte_size,
                         'checksum' => $stored['checksum'] ?? $attachment->checksum,
                         'storage_path' => $stored['storage_path'] ?? $attachment->storage_path,
                         'source_ref' => [
                             ...$sourceRef,
-                            'library_file' => $libraryFile,
+                            'library_file' => $libraryFile->all(),
                         ],
                     ]);
                 }
@@ -218,12 +217,10 @@ final class ChatGptZipImportDriver implements ConversationImportDriver
                 'filename' => $filename,
                 'mime_type' => $mimeType,
                 'byte_size' => $stored['byte_size']
-                    ?? (is_numeric($libraryFile['file_size_bytes'] ?? null)
-                        ? (int) $libraryFile['file_size_bytes']
-                        : null),
+                    ?? $libraryFile->nullInteger('file_size_bytes'),
                 'checksum' => $stored['checksum'] ?? null,
                 'storage_path' => $stored['storage_path'] ?? null,
-                'source_ref' => ['library_file' => $libraryFile],
+                'source_ref' => ['library_file' => $libraryFile->all()],
             ]);
         }
     }
@@ -231,9 +228,9 @@ final class ChatGptZipImportDriver implements ConversationImportDriver
     private function applyConversationSupplementals(int $userId): void
     {
         foreach ($this->sharedConversations() as $sharedConversation) {
-            $sourceConversationId = $sharedConversation['conversation_id'] ?? null;
+            $sourceConversationId = $sharedConversation->nullString('conversation_id');
 
-            if (! is_string($sourceConversationId) || $sourceConversationId === '') {
+            if ($sourceConversationId === null) {
                 continue;
             }
 
@@ -244,10 +241,10 @@ final class ChatGptZipImportDriver implements ConversationImportDriver
             }
 
             $metadata = $conversation->metadata ?? [];
-            $shareId = $sharedConversation['id'] ?? null;
+            $shareId = $sharedConversation->nullString('id');
             $metadata['shared_conversations'][] = [
-                ...$sharedConversation,
-                'source_url' => is_string($shareId) && $shareId !== ''
+                ...$sharedConversation->all(),
+                'source_url' => $shareId !== null
                     ? 'https://chatgpt.com/share/'.$shareId
                     : null,
             ];
@@ -255,9 +252,9 @@ final class ChatGptZipImportDriver implements ConversationImportDriver
         }
 
         foreach ($this->messageFeedback() as $feedback) {
-            $sourceConversationId = $feedback['conversation_id'] ?? null;
+            $sourceConversationId = $feedback->nullString('conversation_id');
 
-            if (! is_string($sourceConversationId) || $sourceConversationId === '') {
+            if ($sourceConversationId === null) {
                 continue;
             }
 
@@ -268,7 +265,7 @@ final class ChatGptZipImportDriver implements ConversationImportDriver
             }
 
             $metadata = $conversation->metadata ?? [];
-            $metadata['message_feedback'][] = $feedback;
+            $metadata['message_feedback'][] = $feedback->all();
             $conversation->update(['metadata' => $metadata]);
         }
     }
@@ -322,14 +319,11 @@ final class ChatGptZipImportDriver implements ConversationImportDriver
             ->first();
     }
 
-    /**
-     * @param  array<string, mixed>  $libraryFile
-     */
-    private function findOriginMessage(int $userId, array $libraryFile): ?Message
+    private function findOriginMessage(int $userId, Fluent $libraryFile): ?Message
     {
-        $messageId = $libraryFile['origination_message_id'] ?? null;
+        $messageId = $libraryFile->nullString('origination_message_id');
 
-        if (is_string($messageId) && $messageId !== '') {
+        if ($messageId !== null) {
             $message = Message::query()
                 ->where('source_message_id', $messageId)
                 ->whereHas('conversation', fn ($query) => $query
@@ -343,11 +337,10 @@ final class ChatGptZipImportDriver implements ConversationImportDriver
             }
         }
 
-        $threadId = $libraryFile['origination_thread_id']
-            ?? $libraryFile['initiating_conversation_id']
-            ?? null;
+        $threadId = $libraryFile->nullString('origination_thread_id')
+            ?? $libraryFile->nullString('initiating_conversation_id');
 
-        if (! is_string($threadId) || $threadId === '') {
+        if ($threadId === null) {
             return null;
         }
 
@@ -369,34 +362,29 @@ final class ChatGptZipImportDriver implements ConversationImportDriver
     /** @param array<string, mixed> $data */
     public function parseCodexConversation(array $data, ImportContext $context): CanonicalConversation
     {
-        $turns = is_array($data['turns'] ?? null) ? $data['turns'] : [];
+        $data = new Fluent($data);
+        $turns = $data->collectFluent('turns');
         $messages = [];
         $previousMessageId = null;
 
         foreach ($turns as $index => $turn) {
-            if (! is_array($turn)) {
-                continue;
-            }
-
-            $sourceMessageId = (string) ($turn['id'] ?? 'turn-'.($index + 1));
-            $items = is_array($turn['input_items'] ?? null)
-                ? $turn['input_items']
-                : (is_array($turn['output_items'] ?? null) ? $turn['output_items'] : []);
+            $sourceMessageId = $turn->scalarString('id') ?? 'turn-'.($index + 1);
+            $items = $turn->nullArray('input_items')
+                ?? $turn->nullArray('output_items')
+                ?? [];
             [$blocks, $attachments] = $this->parseCodexItems($items);
 
             $messages[] = new CanonicalMessage(
                 sourceMessageId: $sourceMessageId,
-                parentSourceMessageId: filled($turn['previous_turn_id'] ?? null)
-                    ? (string) $turn['previous_turn_id']
-                    : $previousMessageId,
-                role: MessageRole::normalize($turn['role'] ?? null),
+                parentSourceMessageId: $turn->nullString('previous_turn_id') ?? $previousMessageId,
+                role: MessageRole::normalize($turn->get('role')),
                 actorName: 'Codex',
                 createdAt: null,
                 isOnCanonicalPath: true,
                 isHidden: false,
                 blocks: $blocks,
                 metadata: [
-                    ...Arr::except($turn, ['input_items', 'output_items']),
+                    ...$turn->except(['input_items', 'output_items']),
                     'position' => $index,
                 ],
                 attachments: $attachments,
@@ -406,14 +394,17 @@ final class ChatGptZipImportDriver implements ConversationImportDriver
         }
 
         return new CanonicalConversation(
-            title: (string) ($data['title'] ?? 'Untitled Codex conversation'),
+            title: $data->nullString('title') ?? 'Untitled Codex conversation',
             sourcePlatform: SourcePlatform::Codex,
-            sourceConversationId: (string) ($data['id'] ?? 'codex-'.hash('sha256', serialize($data))),
+            sourceConversationId: $data->scalarString('id') ?? 'codex-'.hash('sha256', serialize($data->all())),
             messages: $messages,
-            metadata: Arr::except($data, ['turns', 'title', 'id']),
+            metadata: $data->except(['turns', 'title', 'id']),
             sources: [CanonicalConversationSource::fromImportContext($context, 'codex.json')],
             canonicalLeafSourceMessageId: $previousMessageId,
-            projectIdentifiers: ExtractProjectIdentifiers::make()->execute(SourcePlatform::Codex, $turns),
+            projectIdentifiers: ExtractProjectIdentifiers::make()->execute(
+                SourcePlatform::Codex,
+                $data->nullArray('turns') ?? [],
+            ),
         );
     }
 
@@ -432,24 +423,19 @@ final class ChatGptZipImportDriver implements ConversationImportDriver
                 continue;
             }
 
-            $type = (string) ($item['type'] ?? 'other');
+            $item = new Fluent($item);
+            $type = $item->nullString('type') ?? 'other';
 
             if ($type === 'message') {
-                $parts = is_array($item['content'] ?? null) ? $item['content'] : [];
-
-                foreach ($parts as $part) {
-                    if (! is_array($part)) {
-                        continue;
-                    }
-
-                    $contentType = (string) ($part['content_type'] ?? 'other');
-                    $text = is_string($part['text'] ?? null) ? trim($part['text']) : null;
+                foreach ($item->collectFluent('content') as $part) {
+                    $contentType = $part->nullString('content_type') ?? 'other';
+                    $text = ($partText = $part->nullString('text')) !== null ? trim($partText) : null;
 
                     $blocks[] = new CanonicalContentBlock(
                         position: $position++,
                         blockType: $contentType === 'text' ? BlockType::Text : BlockType::Other,
                         textContent: filled($text) ? $text : $this->codexSearchableText($contentType, $part),
-                        structuredContent: $part,
+                        structuredContent: $part->all(),
                         metadata: ['content_type' => $contentType],
                     );
                 }
@@ -458,18 +444,18 @@ final class ChatGptZipImportDriver implements ConversationImportDriver
             }
 
             if ($type === 'image_asset_pointer') {
-                $sourceId = $this->codexSourceId($item['asset_pointer'] ?? null);
+                $sourceId = $this->codexSourceId($item->get('asset_pointer'));
                 $attachment = new CanonicalAttachment(
                     sourceAttachmentId: $sourceId,
                     attachmentType: AttachmentType::Image,
-                    byteSize: is_numeric($item['size_bytes'] ?? null) ? (int) $item['size_bytes'] : null,
-                    sourceRef: $item,
+                    byteSize: $item->nullInteger('size_bytes'),
+                    sourceRef: $item->all(),
                 );
 
                 $blocks[] = new CanonicalContentBlock(
                     position: $position++,
                     blockType: BlockType::Image,
-                    structuredContent: $item,
+                    structuredContent: $item->all(),
                     metadata: ['content_type' => $type],
                     attachments: $sourceId !== null ? [$attachment] : [],
                 );
@@ -487,7 +473,7 @@ final class ChatGptZipImportDriver implements ConversationImportDriver
                     ? BlockType::ToolResult
                     : BlockType::Other,
                 textContent: $this->codexSearchableText($type, $item),
-                structuredContent: $item,
+                structuredContent: $item->all(),
                 metadata: ['content_type' => $type],
             );
         }
@@ -495,14 +481,13 @@ final class ChatGptZipImportDriver implements ConversationImportDriver
         return [$blocks, array_values($attachments)];
     }
 
-    /** @param array<string, mixed> $payload */
-    private function codexSearchableText(string $type, array $payload): ?string
+    private function codexSearchableText(string $type, Fluent $payload): ?string
     {
         $values = [$type];
 
         foreach (['path', 'commit_message', 'pr_title', 'pr_message', 'branch', 'branch_name'] as $key) {
-            if (is_string($payload[$key] ?? null) && trim($payload[$key]) !== '') {
-                $values[] = trim($payload[$key]);
+            if (($value = $payload->nullString($key)) !== null) {
+                $values[] = trim($value);
             }
         }
 
@@ -708,44 +693,39 @@ final class ChatGptZipImportDriver implements ConversationImportDriver
         }
     }
 
-    /** @return array<int, array<string, mixed>> */
-    private function libraryFiles(): array
+    private function libraryFiles(): FluentCollection
     {
         return $this->arrayRecords('library_files.json');
     }
 
-    /** @return array<int, array<string, mixed>> */
-    private function codexConversations(): array
+    private function codexConversations(): FluentCollection
     {
         return $this->arrayRecords('codex.json');
     }
 
-    /** @return array<int, array<string, mixed>> */
-    private function sharedConversations(): array
+    private function sharedConversations(): FluentCollection
     {
         return $this->arrayRecords('shared_conversations.json');
     }
 
-    /** @return array<int, array<string, mixed>> */
-    private function messageFeedback(): array
+    private function messageFeedback(): FluentCollection
     {
         return $this->arrayRecords('message_feedback.json');
     }
 
-    /** @return array<int, array<string, mixed>> */
-    private function arrayRecords(string $basename): array
+    private function arrayRecords(string $basename): FluentCollection
     {
         $entry = $this->findEntryByBasename($basename);
 
         if ($entry === null) {
-            return [];
+            return FluentCollection::from([]);
         }
 
         $decoded = $this->decodeJsonEntry($entry);
 
         return array_is_list($decoded)
-            ? array_values(array_filter($decoded, 'is_array'))
-            : [];
+            ? FluentCollection::from($decoded)
+            : FluentCollection::from([]);
     }
 
     private function sourceId(mixed $reference): ?string
@@ -854,15 +834,15 @@ final class ChatGptZipImportDriver implements ConversationImportDriver
         $manifestEntry = $this->findEntryByBasename('export_manifest.json', excludeSuffix: '/sites/export_manifest.json');
 
         if ($manifestEntry !== null) {
-            $manifest = $this->decodeJsonEntry($manifestEntry);
-            $logicalFiles = is_array($manifest['logical_files'] ?? null) ? $manifest['logical_files'] : [];
+            $manifest = new Fluent($this->decodeJsonEntry($manifestEntry));
+            $logicalFiles = $manifest->collectFluent('logical_files');
 
             foreach ($logicalFiles as $logicalPath => $description) {
-                if (! is_string($logicalPath) || ! is_array($description)) {
+                if (! is_string($logicalPath)) {
                     continue;
                 }
 
-                $physicalFiles = is_array($description['files'] ?? null) ? $description['files'] : [];
+                $physicalFiles = $description->nullArray('files') ?? [];
                 $physicalPath = isset($physicalFiles[0]) && is_string($physicalFiles[0])
                     ? $physicalFiles[0]
                     : $logicalPath;

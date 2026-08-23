@@ -4,6 +4,7 @@ namespace App\Actions\Imports;
 
 use App\Actions\Action;
 use App\Actions\Projects\ExtractProjectIdentifiers;
+use App\Collections\FluentCollection;
 use App\Enums\AttachmentType;
 use App\Enums\BlockType;
 use App\Enums\MessageRole;
@@ -13,10 +14,11 @@ use App\ValueObjects\CanonicalContentBlock;
 use App\ValueObjects\CanonicalConversation;
 use App\ValueObjects\CanonicalConversationSource;
 use App\ValueObjects\CanonicalMessage;
+use App\ValueObjects\Fluent;
 use App\ValueObjects\ImportContext;
 use Carbon\Carbon;
-use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
 
 class ParseChatGptConversation extends Action
 {
@@ -26,132 +28,111 @@ class ParseChatGptConversation extends Action
      */
     public function execute(ImportContext $ctx, string|array $contents): array
     {
-        $data = is_string($contents) ? json_decode($contents, true) : $contents;
+        $data = Fluent::tryFrom($contents);
 
-        if (! is_array($data)) {
-            throw new \InvalidArgumentException('ChatGPT export is not valid JSON.');
+        if ($data === null) {
+            throw new InvalidArgumentException('ChatGPT export is not valid JSON.');
         }
 
-        if (isset($data['mapping'], $data['current_node'])) {
-            return [$this->parseConversation($data, $ctx)];
+        $contents = $data->all();
+
+        if (array_is_list($contents)) {
+            return FluentCollection::from($contents)
+                ->filter(fn (Fluent $conversation): bool => $this->isConversation($conversation))
+                ->map(fn (Fluent $conversation) => $this->parseConversation($conversation, $ctx))
+                ->values()
+                ->all();
         }
 
-        if (array_is_list($data)) {
-            return array_values(array_map(
-                fn (array $conversation): CanonicalConversation => $this->parseConversation($conversation, $ctx),
-                array_filter(
-                    $data,
-                    static fn (mixed $conversation): bool => is_array($conversation)
-                        && isset($conversation['mapping'], $conversation['current_node']),
-                ),
-            ));
+        if (! $this->isConversation($data)) {
+            throw new InvalidArgumentException('ChatGPT export JSON must contain mapping and current_node.');
         }
 
-        throw new \InvalidArgumentException('ChatGPT export JSON must contain mapping and current_node.');
+        return [$this->parseConversation($data, $ctx)];
     }
 
-    /**
-     * @param  array<string, mixed>  $data
-     */
-    private function parseConversation(array $data, ImportContext $ctx): CanonicalConversation
+    private function isConversation(Fluent $data): bool
     {
-        /** @var array<string, array<string, mixed>> $mapping */
-        $mapping = $data['mapping'] ?? [];
-        $currentNode = (string) ($data['current_node'] ?? '');
+        return $data->nullArray('mapping') !== null && $data->has('current_node');
+    }
 
-        if ($currentNode === '' || $mapping === []) {
-            throw new \InvalidArgumentException('ChatGPT export is missing mapping or current_node.');
+    private function parseConversation(Fluent $conversation, ImportContext $ctx): CanonicalConversation
+    {
+        $mapping = $conversation->collectFluent('mapping');
+        $currentNode = $conversation->nullString('current_node');
+
+        if ($mapping->isEmpty() || $currentNode === null) {
+            throw new InvalidArgumentException('ChatGPT export is missing mapping or current_node.');
         }
 
         $canonicalPathIds = $this->walkCanonicalPath($mapping, $currentNode);
-        $messages = [];
 
-        foreach ($mapping as $nodeId => $node) {
-            if (! is_array($node)) {
-                continue;
-            }
+        $messages = $mapping
+            ->filter(fn (Fluent $node): bool => $node->nullFluent('message') !== null)
+            ->map(function (Fluent $node, int|string $nodeId) use ($canonicalPathIds): CanonicalMessage {
+                $message = $node->fluent('message');
+                $sourceMessageId = (string) $nodeId;
+                $role = MessageRole::normalize($message->get('author.role'));
 
-            $message = $node['message'] ?? null;
+                return new CanonicalMessage(
+                    sourceMessageId: $sourceMessageId,
+                    parentSourceMessageId: $node->nullString('parent'),
+                    role: $role,
+                    actorName: $message->nullString('author.name'),
+                    createdAt: $this->parseTimestamp($message->get('create_time')),
+                    isOnCanonicalPath: $canonicalPathIds[$sourceMessageId] ?? false,
+                    isHidden: false,
+                    blocks: $this->parseContentBlocks($message->fluent('content'), $role, $message),
+                    metadata: $this->messageMetadata($message),
+                    attachments: $this->parseMessageAttachments($message),
+                );
+            })
+            ->values()
+            ->all();
 
-            if (! is_array($message)) {
-                continue;
-            }
-
-            $parentId = $node['parent'] ?? null;
-            $parentSourceMessageId = is_string($parentId) && $parentId !== '' ? $parentId : null;
-            $author = is_array($message['author'] ?? null) ? $message['author'] : [];
-            $role = MessageRole::normalize($author['role'] ?? null);
-            $actorName = isset($author['name']) ? (string) $author['name'] : null;
-            $createdAt = $this->parseTimestamp($message['create_time'] ?? null);
-            $content = is_array($message['content'] ?? null) ? $message['content'] : [];
-            $blocks = $this->parseContentBlocks($content, $role, $message);
-            $attachments = $this->parseMessageAttachments($message);
-
-            $messages[] = new CanonicalMessage(
-                sourceMessageId: (string) $nodeId,
-                parentSourceMessageId: $parentSourceMessageId,
-                role: $role,
-                actorName: $actorName,
-                createdAt: $createdAt,
-                isOnCanonicalPath: isset($canonicalPathIds[$nodeId]),
-                isHidden: false,
-                blocks: $blocks,
-                metadata: $this->messageMetadata($message),
-                attachments: $attachments,
-            );
-        }
-
-        $sourceConversationId = (string) (
-            $data['conversation_id']
-            ?? $data['id']
-            ?? Str::uuid()->toString()
-        );
+        $sourceConversationId = $conversation->nullString('conversation_id')
+            ?? $conversation->nullString('id')
+            ?? Str::uuid()->toString();
 
         return new CanonicalConversation(
-            title: (string) ($data['title'] ?? 'Untitled conversation'),
+            title: $conversation->nullString('title') ?? 'Untitled conversation',
             sourcePlatform: SourcePlatform::ChatGpt,
             sourceConversationId: $sourceConversationId,
             messages: $messages,
-            metadata: $this->conversationMetadata($data),
+            metadata: $this->conversationMetadata($conversation),
             sources: [CanonicalConversationSource::fromImportContext($ctx)],
             canonicalLeafSourceMessageId: $currentNode,
-            projectIdentifiers: ExtractProjectIdentifiers::make()->execute(SourcePlatform::ChatGpt, $data),
+            projectIdentifiers: ExtractProjectIdentifiers::make()->execute(SourcePlatform::ChatGpt, $conversation->all()),
         );
     }
 
     /**
-     * @param  array<string, array<string, mixed>>  $mapping
      * @return array<string, true>
      */
-    private function walkCanonicalPath(array $mapping, string $currentNode): array
+    private function walkCanonicalPath(FluentCollection $mapping, string $currentNode): array
     {
         $path = [];
         $nodeId = $currentNode;
 
-        while ($nodeId !== '') {
+        while ($nodeId !== null && ! isset($path[$nodeId])) {
             $path[$nodeId] = true;
 
-            $parent = $mapping[$nodeId]['parent'] ?? null;
-            $nodeId = is_string($parent) ? $parent : '';
+            $nodeId = $mapping->get($nodeId)?->nullString('parent');
         }
 
         return $path;
     }
 
-    /**
-     * @param  array<string, mixed>  $content
-     * @param  array<string, mixed>  $message
-     * @return array<int, CanonicalContentBlock>
-     */
-    private function parseContentBlocks(array $content, MessageRole $role, array $message): array
+    /** @return array<int, CanonicalContentBlock> */
+    private function parseContentBlocks(Fluent $content, MessageRole $role, Fluent $message): array
     {
-        $contentType = (string) ($content['content_type'] ?? 'text');
-        $parts = $content['parts'] ?? [];
+        $contentType = $content->nullString('content_type') ?? 'text';
+        $parts = $content->array('parts');
         $blocks = [];
         $position = 0;
 
         if ($role === MessageRole::Assistant && $this->hasToolRecipient($message)) {
-            $toolName = (string) $message['recipient'];
+            $toolName = $message->nullString('recipient') ?? 'tool';
             $input = $this->contentPayload($content);
 
             $blocks[] = new CanonicalContentBlock(
@@ -173,12 +154,11 @@ class ParseChatGptConversation extends Action
         }
 
         if ($role === MessageRole::Tool) {
-            $author = is_array($message['author'] ?? null) ? $message['author'] : [];
-            $toolName = (string) ($author['name'] ?? 'tool_result');
+            $toolName = $message->nullString('author.name') ?? 'tool_result';
             $output = $this->contentPayload($content);
 
             if ($this->isBlankPayload($output)) {
-                $output = is_array($message['metadata'] ?? null) ? $message['metadata'] : null;
+                $output = $message->nullArray('metadata');
             }
 
             if (! $this->isBlankPayload($output)) {
@@ -202,15 +182,17 @@ class ParseChatGptConversation extends Action
         }
 
         if ($contentType === 'code') {
-            $language = (string) ($content['language'] ?? $message['metadata']['language'] ?? '');
+            $language = $content->nullString('language')
+                ?? $message->nullString('metadata.language')
+                ?? '';
             $text = $this->contentText($content);
 
-            if (! $this->isBlank($text, $content)) {
+            if (! $this->isBlank($text, $content->all())) {
                 $blocks[] = new CanonicalContentBlock(
                     position: $position++,
                     blockType: BlockType::Code,
                     textContent: $text,
-                    structuredContent: $content,
+                    structuredContent: $content->all(),
                     language: $language !== '' ? $language : null,
                     metadata: ['content_type' => $contentType],
                 );
@@ -220,19 +202,24 @@ class ParseChatGptConversation extends Action
         }
 
         if ($contentType === 'thoughts') {
-            $thoughts = is_array($content['thoughts'] ?? null) ? $content['thoughts'] : [];
-            $text = collect($thoughts)
-                ->filter(fn (mixed $thought): bool => is_array($thought))
-                ->map(fn (array $thought): string => trim((string) ($thought['content'] ?? $thought['summary'] ?? '')))
-                ->filter()
-                ->implode("\n\n");
+            $segments = [];
 
-            if (! $this->isBlank($text, $content)) {
+            foreach ($content->collectFluent('thoughts') as $thought) {
+                $segment = trim($thought->nullString('content') ?? $thought->nullString('summary') ?? '');
+
+                if ($segment !== '') {
+                    $segments[] = $segment;
+                }
+            }
+
+            $text = implode("\n\n", $segments);
+
+            if (! $this->isBlank($text, $content->all())) {
                 $blocks[] = new CanonicalContentBlock(
                     position: $position,
                     blockType: BlockType::Reasoning,
                     textContent: $text !== '' ? $text : null,
-                    structuredContent: $content,
+                    structuredContent: $content->all(),
                     metadata: [
                         'content_type' => $contentType,
                         'collapsed_by_default' => true,
@@ -244,14 +231,14 @@ class ParseChatGptConversation extends Action
         }
 
         if ($contentType === 'reasoning_recap') {
-            $text = trim((string) ($content['content'] ?? ''));
+            $text = trim($content->nullString('content') ?? '');
 
-            if (! $this->isBlank($text, $content)) {
+            if (! $this->isBlank($text, $content->all())) {
                 $blocks[] = new CanonicalContentBlock(
                     position: $position,
                     blockType: BlockType::Reasoning,
                     textContent: $text !== '' ? $text : null,
-                    structuredContent: $content,
+                    structuredContent: $content->all(),
                     metadata: [
                         'content_type' => $contentType,
                         'collapsed_by_default' => true,
@@ -262,14 +249,13 @@ class ParseChatGptConversation extends Action
             return $blocks;
         }
 
-        if ($contentType === 'computer_output' && is_array($content['screenshot'] ?? null)) {
-            $screenshot = $content['screenshot'];
+        if ($contentType === 'computer_output' && ($screenshot = $content->nullFluent('screenshot')) !== null) {
             $attachment = $this->attachmentFromAssetPart($screenshot, AttachmentType::Image);
 
             $blocks[] = new CanonicalContentBlock(
                 position: $position,
                 blockType: BlockType::Image,
-                structuredContent: $content,
+                structuredContent: $content->all(),
                 metadata: ['content_type' => $contentType],
                 attachments: $attachment !== null ? [$attachment] : [],
             );
@@ -299,7 +285,7 @@ class ParseChatGptConversation extends Action
                     continue;
                 }
 
-                $block = $this->parseMultimodalPart($part, $position, $contentType);
+                $block = $this->parseMultimodalPart(new Fluent($part), $position, $contentType);
 
                 if ($block !== null) {
                     $blocks[] = $block;
@@ -312,12 +298,12 @@ class ParseChatGptConversation extends Action
 
         $text = $this->contentText($content);
 
-        if (! $this->isBlank($text, $content)) {
+        if (! $this->isBlank($text, $content->all())) {
             $blocks[] = new CanonicalContentBlock(
                 position: $position,
                 blockType: $this->mapBlockTypeForContentType($contentType, $role),
                 textContent: $text !== '' ? $text : null,
-                structuredContent: $content,
+                structuredContent: $content->all(),
                 metadata: ['content_type' => $contentType],
             );
         }
@@ -325,21 +311,21 @@ class ParseChatGptConversation extends Action
         return $blocks;
     }
 
-    /**
-     * @param  array<string, mixed>  $part
-     */
-    private function parseMultimodalPart(array $part, int $position, string $contentType): ?CanonicalContentBlock
+    private function parseMultimodalPart(Fluent $part, int $position, string $contentType): ?CanonicalContentBlock
     {
-        $assetType = (string) ($part['asset_type'] ?? $part['type'] ?? $part['content_type'] ?? '');
+        $assetType = $part->nullString('asset_type')
+            ?? $part->nullString('type')
+            ?? $part->nullString('content_type')
+            ?? '';
 
         if (
             in_array($assetType, ['image', 'image_asset_pointer'], true)
-            || isset($part['asset_pointer'])
-            || isset($part['image_url'])
+            || $part->has('asset_pointer')
+            || $part->has('image_url')
         ) {
-            $url = is_array($part['image_url'] ?? null)
-                ? (string) ($part['image_url']['url'] ?? '')
-                : (string) ($part['image_url'] ?? '');
+            $url = $part->nullString('image_url.url')
+                ?? $part->nullString('image_url')
+                ?? '';
             $externalUrl = preg_match('/^https?:\/\//i', $url) === 1 ? $url : null;
             $attachment = $this->attachmentFromAssetPart($part, AttachmentType::Image, $externalUrl);
 
@@ -347,29 +333,29 @@ class ParseChatGptConversation extends Action
                 position: $position,
                 blockType: BlockType::Image,
                 textContent: $externalUrl,
-                structuredContent: $part,
+                structuredContent: $part->all(),
                 metadata: ['content_type' => $contentType],
                 attachments: $attachment !== null ? [$attachment] : [],
             );
         }
 
-        $text = $part['text'] ?? $part['content'] ?? null;
+        $text = $part->nullString('text') ?? $part->nullString('content');
 
-        if (is_string($text) && ! $this->isBlank($text, $part)) {
+        if ($text !== null && ! $this->isBlank($text, $part->all())) {
             return new CanonicalContentBlock(
                 position: $position,
                 blockType: BlockType::Text,
                 textContent: $text,
-                structuredContent: $part,
+                structuredContent: $part->all(),
                 metadata: ['content_type' => $contentType],
             );
         }
 
-        if (! $this->isBlank(null, $part)) {
+        if (! $this->isBlank(null, $part->all())) {
             return new CanonicalContentBlock(
                 position: $position,
                 blockType: BlockType::Other,
-                structuredContent: $part,
+                structuredContent: $part->all(),
                 metadata: ['content_type' => $contentType],
             );
         }
@@ -406,9 +392,10 @@ class ParseChatGptConversation extends Action
             }
 
             if (is_array($part)) {
-                $text = $part['text'] ?? $part['content'] ?? null;
+                $part = new Fluent($part);
+                $text = $part->nullString('text') ?? $part->nullString('content');
 
-                if (is_string($text)) {
+                if ($text !== null) {
                     $segments[] = $text;
                 }
             }
@@ -417,38 +404,29 @@ class ParseChatGptConversation extends Action
         return trim(implode("\n", $segments));
     }
 
-    /**
-     * @param  array<string, mixed>  $message
-     */
-    private function hasToolRecipient(array $message): bool
+    private function hasToolRecipient(Fluent $message): bool
     {
-        $recipient = trim((string) ($message['recipient'] ?? ''));
+        $recipient = trim($message->nullString('recipient') ?? '');
 
         return $recipient !== '' && $recipient !== 'all';
     }
 
-    /**
-     * @param  array<string, mixed>  $content
-     */
-    private function contentText(array $content): string
+    private function contentText(Fluent $content): string
     {
-        if (is_string($content['text'] ?? null)) {
-            return trim($content['text']);
+        if (($text = $content->nullString('text')) !== null) {
+            return trim($text);
         }
 
-        if (is_string($content['content'] ?? null)) {
-            return trim($content['content']);
+        if (($text = $content->nullString('content')) !== null) {
+            return trim($text);
         }
 
-        $parts = is_array($content['parts'] ?? null) ? $content['parts'] : [];
+        $parts = $content->array('parts');
 
         return $this->flattenParts($parts);
     }
 
-    /**
-     * @param  array<string, mixed>  $content
-     */
-    private function contentPayload(array $content): mixed
+    private function contentPayload(Fluent $content): mixed
     {
         $text = $this->contentText($content);
 
@@ -470,23 +448,15 @@ class ParseChatGptConversation extends Action
         return $payload === null || $payload === [];
     }
 
-    /**
-     * @param  array<string, mixed>  $message
-     */
-    private function resolveCitations(string $text, array $message): string
+    private function resolveCitations(string $text, Fluent $message): string
     {
-        $metadata = is_array($message['metadata'] ?? null) ? $message['metadata'] : [];
-        $references = is_array($metadata['content_references'] ?? null)
-            ? $metadata['content_references']
-            : [];
-
-        foreach ($references as $reference) {
-            if (! is_array($reference) || ($reference['type'] ?? null) === 'sources_footnote') {
+        foreach ($message->collectFluent('metadata.content_references') as $reference) {
+            if ($reference->nullString('type') === 'sources_footnote') {
                 continue;
             }
 
-            $matchedText = (string) ($reference['matched_text'] ?? '');
-            $alt = trim((string) ($reference['alt'] ?? ''));
+            $matchedText = $reference->nullString('matched_text') ?? '';
+            $alt = trim($reference->nullString('alt') ?? '');
 
             if ($matchedText === '' || $alt === '') {
                 continue;
@@ -525,23 +495,17 @@ class ParseChatGptConversation extends Action
         return null;
     }
 
-    /**
-     * @param  array<string, mixed>  $data
-     * @return array<string, mixed>
-     */
-    private function conversationMetadata(array $data): array
+    /** @return array<string, mixed> */
+    private function conversationMetadata(Fluent $data): array
     {
-        return Arr::except($data, ['mapping', 'title']);
+        return $data->except(['mapping', 'title']);
     }
 
-    /**
-     * @param  array<string, mixed>  $message
-     * @return array<string, mixed>
-     */
-    private function messageMetadata(array $message): array
+    /** @return array<string, mixed> */
+    private function messageMetadata(Fluent $message): array
     {
-        $metadata = is_array($message['metadata'] ?? null) ? $message['metadata'] : [];
-        $source = Arr::except($message, ['content', 'metadata', 'id', 'create_time']);
+        $metadata = $message->nullArray('metadata') ?? [];
+        $source = $message->except(['content', 'metadata', 'id', 'create_time']);
 
         if ($source !== []) {
             $metadata['_source'] = $source;
@@ -550,44 +514,33 @@ class ParseChatGptConversation extends Action
         return $metadata;
     }
 
-    /**
-     * @param  array<string, mixed>  $message
-     * @return array<int, CanonicalAttachment>
-     */
-    private function parseMessageAttachments(array $message): array
+    /** @return array<int, CanonicalAttachment> */
+    private function parseMessageAttachments(Fluent $message): array
     {
-        $metadata = is_array($message['metadata'] ?? null) ? $message['metadata'] : [];
-        $sourceAttachments = is_array($metadata['attachments'] ?? null) ? $metadata['attachments'] : [];
         $attachments = [];
 
-        foreach ($sourceAttachments as $sourceAttachment) {
-            if (! is_array($sourceAttachment)) {
-                continue;
-            }
-
+        foreach ($message->collectFluent('metadata.attachments') as $sourceAttachment) {
             $sourceId = $this->sourceAttachmentId(
-                $sourceAttachment['id']
-                ?? $sourceAttachment['file_id']
-                ?? $sourceAttachment['library_file_id']
-                ?? null,
+                $sourceAttachment->get('id')
+                ?? $sourceAttachment->get('file_id')
+                ?? $sourceAttachment->get('library_file_id'),
             );
 
             if ($sourceId === null) {
                 continue;
             }
 
-            $mimeType = $sourceAttachment['mime_type'] ?? $sourceAttachment['mimeType'] ?? null;
+            $mimeType = $sourceAttachment->nullString('mime_type')
+                ?? $sourceAttachment->nullString('mimeType');
             $attachments[$sourceId] = new CanonicalAttachment(
                 sourceAttachmentId: $sourceId,
-                attachmentType: $this->attachmentType(is_string($mimeType) ? $mimeType : null),
-                filename: isset($sourceAttachment['name'])
-                    ? Str::limit((string) $sourceAttachment['name'], 255, '')
+                attachmentType: $this->attachmentType($mimeType),
+                filename: ($name = $sourceAttachment->nullString('name')) !== null
+                    ? Str::limit($name, 255, '')
                     : null,
-                mimeType: is_string($mimeType) ? $mimeType : null,
-                byteSize: is_numeric($sourceAttachment['size'] ?? null)
-                    ? (int) $sourceAttachment['size']
-                    : null,
-                sourceRef: $sourceAttachment,
+                mimeType: $mimeType,
+                byteSize: $sourceAttachment->nullInteger('size'),
+                sourceRef: $sourceAttachment->all(),
             );
         }
 
@@ -615,19 +568,15 @@ class ParseChatGptConversation extends Action
         return array_values($attachments);
     }
 
-    /**
-     * @param  array<string, mixed>  $part
-     */
     private function attachmentFromAssetPart(
-        array $part,
+        Fluent $part,
         AttachmentType $attachmentType,
         ?string $externalUrl = null,
     ): ?CanonicalAttachment {
-        $pointer = $part['asset_pointer'] ?? $part['image_url'] ?? $externalUrl;
-
-        if (is_array($pointer)) {
-            $pointer = $pointer['url'] ?? null;
-        }
+        $pointer = $part->nullString('asset_pointer')
+            ?? $part->nullString('image_url.url')
+            ?? $part->nullString('image_url')
+            ?? $externalUrl;
 
         $sourceId = $this->sourceAttachmentId($pointer);
 
@@ -638,9 +587,9 @@ class ParseChatGptConversation extends Action
         return new CanonicalAttachment(
             sourceAttachmentId: $sourceId,
             attachmentType: $attachmentType,
-            byteSize: is_numeric($part['size_bytes'] ?? null) ? (int) $part['size_bytes'] : null,
+            byteSize: $part->nullInteger('size_bytes'),
             externalUrl: $externalUrl,
-            sourceRef: $part,
+            sourceRef: $part->all(),
         );
     }
 
@@ -662,11 +611,8 @@ class ParseChatGptConversation extends Action
         return AttachmentType::fromMimeType($mimeType);
     }
 
-    /**
-     * @param  array<string, mixed>  $message
-     * @return array<int, array{key: string, value: string}>
-     */
-    private function assetReferences(array $message): array
+    /** @return array<int, array{key: string, value: string}> */
+    private function assetReferences(Fluent $message): array
     {
         $references = [];
         $walk = function (mixed $value, string $key = '') use (&$walk, &$references): void {
@@ -685,7 +631,7 @@ class ParseChatGptConversation extends Action
             }
         };
 
-        $walk($message);
+        $walk($message->all());
 
         return $references;
     }
