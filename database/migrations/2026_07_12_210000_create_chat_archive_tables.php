@@ -18,10 +18,13 @@ return new class extends Migration
             $table->string('source_conversation_id');
             $table->string('title')->nullable();
             $table->unsignedBigInteger('canonical_leaf_message_id')->nullable();
+            $table->timestamp('first_message_at')->nullable();
+            $table->timestamp('last_message_at')->nullable();
             $table->json('metadata');
             $table->timestamps();
 
             $table->unique(['user_id', 'source_platform', 'source_conversation_id']);
+            $table->index(['user_id', 'last_message_at']);
 
             if (Schema::getConnection()->getDriverName() !== 'sqlite') {
                 $table->fullText('title');
@@ -44,6 +47,13 @@ return new class extends Migration
             $table->index(['conversation_id', 'source_message_id']);
         });
 
+        Schema::table('conversations', function (Blueprint $table) {
+            $table->foreign('canonical_leaf_message_id')
+                ->references('id')
+                ->on('messages')
+                ->nullOnDelete();
+        });
+
         Schema::create('content_blocks', function (Blueprint $table) {
             $table->id();
             $table->foreignId('message_id')->constrained()->cascadeOnDelete();
@@ -62,16 +72,26 @@ return new class extends Migration
 
         Schema::create('attachments', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('message_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('conversation_id')->nullable()->constrained()->cascadeOnDelete();
+            $table->foreignId('message_id')->nullable()->constrained()->cascadeOnDelete();
             $table->foreignId('content_block_id')->nullable()->constrained()->nullOnDelete();
+            $table->string('source_platform')->nullable();
+            $table->string('source_attachment_id')->nullable();
             $table->string('attachment_type');
             $table->string('filename')->nullable();
             $table->string('mime_type')->nullable();
             $table->unsignedBigInteger('byte_size')->nullable();
+            $table->string('checksum', 64)->nullable();
             $table->string('storage_path')->nullable();
             $table->string('external_url')->nullable();
             $table->json('source_ref')->nullable();
             $table->timestamps();
+
+            $table->index(['user_id', 'attachment_type', 'created_at']);
+            $table->index(['conversation_id', 'created_at']);
+            $table->index(['user_id', 'source_platform', 'source_attachment_id'], 'attachments_source_lookup_index');
+            $table->index(['user_id', 'checksum']);
         });
 
         Schema::create('conversation_sources', function (Blueprint $table) {

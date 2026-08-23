@@ -12,6 +12,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->string('name');
+            $table->string('emoji', 32)->nullable();
             $table->json('metadata')->nullable();
             $table->timestamps();
 
