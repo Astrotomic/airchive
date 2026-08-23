@@ -15,5 +15,5 @@ jobs:
           extensions: dom, curl, libxml, mbstring, zip
       - run: composer install --prefer-dist --no-interaction --no-scripts
       - run: cp .env.example .env
-      - run: artisan key:generate
+      - run: php artisan key:generate
       - run: vendor/bin/phpunit
