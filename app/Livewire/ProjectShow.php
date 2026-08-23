@@ -103,7 +103,7 @@ class ProjectShow extends Component
                 ->get(),
             'conversations' => $this->project->conversations()
                 ->with('projects:id,name,emoji')
-                ->forPlatform($this->platform)
+                ->wherePlatform($this->platform)
                 ->search($this->search)
                 ->latestByMessage()
                 ->paginate(20),

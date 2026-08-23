@@ -28,7 +28,6 @@ rules:
 parameters:
     paths:
         - app
-        - phpstan/Rules
 
     excludePaths:
         analyseAndScan:
@@ -36,7 +35,7 @@ parameters:
 
     tmpDir: ./.phpstan
 
-    level: 1
+    level: 2
 
     reportUnmatchedIgnoredErrors: false
 

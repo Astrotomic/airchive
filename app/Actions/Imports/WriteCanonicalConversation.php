@@ -54,15 +54,13 @@ class WriteCanonicalConversation extends Action
                     ->value('id');
             }
 
-            $messageRange = Message::query()
-                ->where('conversation_id', $conversation->id)
-                ->selectRaw('MIN(created_at) as first_message_at, MAX(created_at) as last_message_at')
-                ->first();
+            $firstMessageAt = $conversation->messages()->min('created_at');
+            $lastMessageAt = $conversation->messages()->max('created_at');
 
             $conversation->update([
                 'canonical_leaf_message_id' => $leafMessageId,
-                'first_message_at' => $messageRange?->first_message_at,
-                'last_message_at' => $messageRange?->last_message_at,
+                'first_message_at' => $firstMessageAt,
+                'last_message_at' => $lastMessageAt,
             ]);
 
             $this->recordSources($conversation, $canonical, $ctx);

@@ -16,7 +16,7 @@ final readonly class LinkRenderer implements NodeRendererInterface
 
     public function render(Node $node, ChildNodeRendererInterface $childRenderer): ?HtmlElement
     {
-        Link::assertInstanceOf($node);
+        assert($node instanceof Link);
 
         $url = $node->getUrl();
         $parts = parse_url($url);
