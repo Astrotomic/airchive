@@ -35,7 +35,7 @@ parameters:
 
     tmpDir: ./.phpstan
 
-    level: 5
+    level: 6
 
     reportUnmatchedIgnoredErrors: false
 

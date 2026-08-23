@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Storage;
 use InvalidArgumentException;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\WithFileUploads;
 
 #[Layout('layouts.app', ['title' => 'Import'])]
@@ -22,7 +23,7 @@ class Upload extends Component
 {
     use WithFileUploads;
 
-    public $upload;
+    public TemporaryUploadedFile|null $upload = null;
 
     public function save(): void
     {
