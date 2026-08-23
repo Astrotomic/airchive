@@ -85,7 +85,7 @@
         "fix": "@php vendor/bin/pint",
         "fix-dirty": "@php vendor/bin/pint --dirty",
         "ide": [
-            "@php artisan ide-helper:models --write --dir=app/Models --ansi --reset --no-interaction --quiet",
+            "@php artisan ide-helper:models --write --ansi --reset --no-interaction --quiet",
             "@composer fix"
         ],
         "coverage": "XDEBUG_MODE=coverage ./vendor/bin/phpunit --compact --coverage-html=.coverage",
