@@ -5,7 +5,7 @@ on:
   pull_request:
 
 jobs:
-  unit:
+  phpunit:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -14,4 +14,6 @@ jobs:
           php-version: 8.5
           extensions: dom, curl, libxml, mbstring, zip
       - run: composer install --prefer-dist --no-interaction --no-scripts
+      - run: cp .env.example .env
+      - run: artisan key:generate
       - run: vendor/bin/phpunit
