@@ -805,7 +805,7 @@ final class ChatGptZipImportDriver implements ConversationImportDriver
             $this->storedAssets[$sourceId] = [
                 'storage_path' => $storagePath,
                 'checksum' => $checksum,
-                'byte_size' => is_array($stat) && (int) $stat['size'],
+                'byte_size' => $stat['size'] ?? null,
             ];
         }
 

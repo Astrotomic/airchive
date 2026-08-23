@@ -140,6 +140,9 @@ class Attachment extends Model
         );
     }
 
+    /**
+     * @param  positive-int  $length
+     */
     public function textPreview(int $length = 900): ?string
     {
         if (! in_array($this->category, [AttachmentCategory::Text, AttachmentCategory::Artifact], true)

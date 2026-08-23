@@ -206,7 +206,8 @@ class ConversationShow extends Component
      */
     private function groupIntoTurns(Collection $messages): Collection
     {
-        return $messages->reduce(function (Collection $turns, Message $message): Collection {
+        /** @var Collection<int, array{role: MessageRole, started_at: mixed, ended_at: mixed, blocks: Collection<int, ContentBlock>, attachments: Collection<int, Attachment>, message_ids: list<int>, is_on_canonical_path: bool}> $turns */
+        $turns = $messages->reduce(function (Collection $turns, Message $message): Collection {
             $blocks = $message->contentBlocks->filter(
                 fn ($block): bool => filled($block->text_content)
                     || filled($block->structured_content)
@@ -241,5 +242,7 @@ class ConversationShow extends Component
                 'is_on_canonical_path' => $message->is_on_canonical_path,
             ]);
         }, collect());
+
+        return $turns;
     }
 }

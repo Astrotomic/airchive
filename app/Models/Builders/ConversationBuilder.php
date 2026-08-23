@@ -67,11 +67,9 @@ final class ConversationBuilder extends Builder
 
     public function latestByMessage(): self
     {
-        $lastMessageColumn = $this->getModel()->qualifyColumn('last_message_at');
-
         return $this
-            ->orderByRaw("CASE WHEN {$lastMessageColumn} IS NULL THEN 1 ELSE 0 END")
-            ->orderByDesc($lastMessageColumn)
+            ->orderByRaw('CASE WHEN conversations.last_message_at IS NULL THEN 1 ELSE 0 END')
+            ->orderByDesc($this->getModel()->qualifyColumn('last_message_at'))
             ->orderByDesc($this->getModel()->qualifyColumn('id'));
     }
 }

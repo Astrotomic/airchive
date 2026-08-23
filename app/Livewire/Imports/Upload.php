@@ -23,7 +23,7 @@ class Upload extends Component
 {
     use WithFileUploads;
 
-    public TemporaryUploadedFile|null $upload = null;
+    public ?TemporaryUploadedFile $upload = null;
 
     public function save(): void
     {
@@ -40,6 +40,12 @@ class Upload extends Component
 
         $originalName = $this->upload->getClientOriginalName();
         $path = $this->upload->store('imports');
+
+        if (! $path) {
+            $this->addError('upload', 'Failed to store temporary uploaded file.');
+
+            return;
+        }
 
         try {
             $format = DetectImportFormat::make()->execute(Storage::path($path), $originalName);

@@ -22,7 +22,7 @@ trait BelongsToUser
 
         static::creating(function (self $model): void {
             if (Auth::check()) {
-                $model->user_id ??= Auth::id();
+                $model->user_id ??= (int) Auth::id();
             }
         });
     }
