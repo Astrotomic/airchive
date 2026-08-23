@@ -52,8 +52,8 @@ class Index extends Component
             'conversations' => Conversation::query()
                 ->with('projects:id,name,emoji')
                 ->search($this->query)
-                ->forPlatform($this->platform)
-                ->forProject($this->projectFilter)
+                ->wherePlatform($this->platform)
+                ->whereProject($this->projectFilter)
                 ->latestByMessage()
                 ->paginate(10),
             'platforms' => SourcePlatform::cases(),

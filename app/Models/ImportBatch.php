@@ -19,10 +19,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property ImportBatchStatus $status
  * @property CarbonImmutable|null $updated_at
  * @property int $user_id
+ * @property-read User $user
  *
  * @method static \Illuminate\Database\Eloquent\Builder<static> query()
- *
- * @property-read User $user
  */
 class ImportBatch extends Model
 {

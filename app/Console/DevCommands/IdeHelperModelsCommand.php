@@ -7,11 +7,6 @@ use Barryvdh\Reflection\DocBlock;
 use Barryvdh\Reflection\DocBlock\Context;
 use Barryvdh\Reflection\DocBlock\Serializer as DocBlockSerializer;
 use Barryvdh\Reflection\DocBlock\Tag;
-use Carbon\Carbon;
-use Carbon\CarbonImmutable;
-use Illuminate\Contracts\Filesystem\FileNotFoundException;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Carbon as IlluminateCarbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use ReflectionClass;
@@ -25,9 +20,7 @@ class IdeHelperModelsCommand extends ModelsCommand
 
         // remove default Eloquent mixin
         $docComment = str_replace('@mixin \Eloquent', '', $docComment);
-
-        // replace illuminate carbon with default carbon
-        $docComment = str_replace(IlluminateCarbon::class, CarbonImmutable::class, $docComment);
+        $docComment = str_replace('|\Eloquent ', ' ', $docComment);
 
         // remove wrongfully added query methods
         $docComment = preg_replace('/@method static .+ newQuery\(\)/', '', $docComment);
@@ -35,6 +28,7 @@ class IdeHelperModelsCommand extends ModelsCommand
 
         // remove model from query type
         $docComment = preg_replace('/@method static (.+)\|.+ query\(\)/', '@method static $1 query()', $docComment);
+        $docComment = preg_replace('/@method static (\w+Builder)<.+> query\(\)/', '@method static $1 query()', $docComment);
 
         // remove blank lines
         $docComment = preg_replace("/\s\*\s*\n/", '', $docComment);
@@ -49,16 +43,10 @@ class IdeHelperModelsCommand extends ModelsCommand
     }
 
     /**
-     * @see `START customization` and `END customization` comment
-     * @see \App\Console\Commands\IdeHelperModelsCommand::customizePhpDoc()
-     * @see ModelsCommand::createPhpDocs()
-     *
-     * @param  class-string<Model>  $class
-     *
-     * @throws FileNotFoundException
-     * @throws \ReflectionException
+     * @param  string  $class
+     * @return string
      */
-    protected function createPhpDocs($class): string
+    protected function createPhpDocs($class)
     {
         $reflection = new ReflectionClass($class);
         $namespace = $reflection->getNamespaceName();
@@ -70,19 +58,19 @@ class IdeHelperModelsCommand extends ModelsCommand
             $reflection->getParentClass()->getInterfaceNames()
         );
 
+        $phpdoc = new DocBlock($reflection, new Context($namespace));
         if ($this->reset) {
-            $phpdoc = new DocBlock('', new Context($namespace));
-            if ($this->keep_text) {
-                $phpdoc->setText(
-                    (new DocBlock($reflection, new Context($namespace)))->getText()
-                );
+            $phpdoc->setText(
+                (new DocBlock($reflection, new Context($namespace)))->getText()
+            );
+            foreach ($phpdoc->getTags() as $tag) {
+                if (
+                    in_array($tag->getName(), ['property', 'property-read', 'property-write', 'method', 'mixin'])
+                    || ($tag->getName() === 'noinspection' && in_array($tag->getContent(), ['PhpUnnecessaryFullyQualifiedNameInspection', 'PhpFullyQualifiedNameUsageInspection']))
+                ) {
+                    $phpdoc->deleteTag($tag);
+                }
             }
-        } else {
-            $phpdoc = new DocBlock($reflection, new Context($namespace));
-        }
-
-        if (! $phpdoc->getText()) {
-            $phpdoc->setText($class);
         }
 
         $properties = [];
@@ -97,7 +85,7 @@ class IdeHelperModelsCommand extends ModelsCommand
         }
 
         foreach ($this->properties as $name => $property) {
-            $name = "\${$name}";
+            $name = "\$$name";
 
             if ($this->hasCamelCaseModelProperties()) {
                 $name = Str::camel($name);
@@ -134,19 +122,28 @@ class IdeHelperModelsCommand extends ModelsCommand
             $phpdoc->appendTag($tag);
         }
 
-        if ($this->write && ! $phpdoc->getTagsByName('mixin')) {
+        if ($this->write) {
             $eloquentClassNameInModel = $this->getClassNameInDestinationFile($reflection, 'Eloquent');
+
+            // remove the already existing tag to prevent duplicates
+            foreach ($phpdoc->getTagsByName('mixin') as $tag) {
+                if ($tag->getContent() === $eloquentClassNameInModel) {
+                    $phpdoc->deleteTag($tag);
+                }
+            }
+
             $phpdoc->appendTag(Tag::createInstance('@mixin '.$eloquentClassNameInModel, $phpdoc));
         }
+
         if ($this->phpstorm_noinspections) {
             /**
-             * Facades, Eloquent API.
+             * Facades, Eloquent API
              *
              * @see https://www.jetbrains.com/help/phpstorm/php-fully-qualified-name-usage.html
              */
             $phpdoc->appendTag(Tag::createInstance('@noinspection PhpFullyQualifiedNameUsageInspection', $phpdoc));
             /**
-             * Relations, other models in the same namespace.
+             * Relations, other models in the same namespace
              *
              * @see https://www.jetbrains.com/help/phpstorm/php-unnecessary-fully-qualified-name.html
              */
@@ -206,7 +203,9 @@ class IdeHelperModelsCommand extends ModelsCommand
         }
 
         $classname = $this->write_mixin ? $mixinClassName : $classname;
-        $output = "namespace {$namespace}{\n{$docComment}\n\t{$keyword}class {$classname} ";
+
+        $allowDynamicAttributes = $this->write_mixin ? "#[\AllowDynamicProperties]\n\t" : '';
+        $output = "namespace {$namespace}{\n{$docComment}\n\t{$allowDynamicAttributes}{$keyword}class {$classname} ";
 
         if (! $this->write_mixin) {
             $output .= "extends \Eloquent ";

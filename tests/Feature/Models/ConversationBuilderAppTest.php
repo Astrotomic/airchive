@@ -23,13 +23,13 @@ class ConversationBuilderAppTest extends AppTestCase
 
         Assert::assertEqualsCanonicalizing(
             [$chatGpt->id, $cursor->id],
-            Conversation::query()->forPlatform(null)->pluck('id')->all(),
+            Conversation::query()->wherePlatform(null)->pluck('id')->all(),
         );
         Assert::assertSame(
             [$chatGpt->id],
-            Conversation::query()->forPlatform(SourcePlatform::ChatGpt->value)->pluck('id')->all(),
+            Conversation::query()->wherePlatform(SourcePlatform::ChatGpt->value)->pluck('id')->all(),
         );
-        Assert::assertSame([], Conversation::query()->forPlatform('unknown')->pluck('id')->all());
+        Assert::assertSame([], Conversation::query()->wherePlatform('unknown')->pluck('id')->all());
     }
 
     public function test_project_filter_supports_assigned_unassigned_blank_and_invalid_values(): void
@@ -46,11 +46,11 @@ class ConversationBuilderAppTest extends AppTestCase
 
         Assert::assertEqualsCanonicalizing(
             [$assigned->id, $unassigned->id],
-            Conversation::query()->forProject('')->pluck('id')->all(),
+            Conversation::query()->whereProject('')->pluck('id')->all(),
         );
-        Assert::assertSame([$assigned->id], Conversation::query()->forProject((string) $project->id)->pluck('id')->all());
-        Assert::assertSame([$unassigned->id], Conversation::query()->forProject('none')->pluck('id')->all());
-        Assert::assertSame([], Conversation::query()->forProject('invalid')->pluck('id')->all());
+        Assert::assertSame([$assigned->id], Conversation::query()->whereProject((string) $project->id)->pluck('id')->all());
+        Assert::assertSame([$unassigned->id], Conversation::query()->whereProject('none')->pluck('id')->all());
+        Assert::assertSame([], Conversation::query()->whereProject('invalid')->pluck('id')->all());
     }
 
     public function test_latest_by_message_orders_dates_descending_nulls_last_and_breaks_ties_by_id(): void

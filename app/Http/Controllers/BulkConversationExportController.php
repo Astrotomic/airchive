@@ -33,8 +33,8 @@ class BulkConversationExportController
             ->whereBelongsTo($request->user())
             ->with('projects:id,name,emoji')
             ->search((string) ($validated['query'] ?? ''))
-            ->forPlatform($validated['platform'] ?? null)
-            ->forProject($validated['project'] ?? null)
+            ->wherePlatform($validated['platform'] ?? null)
+            ->whereProject($validated['project'] ?? null)
             ->latestByMessage()
             ->get();
 

@@ -25,9 +25,7 @@ use UAParser\Result\Client;
  * @property-read Client $parsed_user_agent
  * @property-read User|null $user
  *
- * @method static SessionBuilder<static>|Session revokeOthers(string $currentSessionId)
- * @method static SessionBuilder<static>|Session revoke(string $sessionId)
- * @method static SessionBuilder<static> query()
+ * @method static SessionBuilder query()
  */
 #[UseEloquentBuilder(SessionBuilder::class)]
 class Session extends Model

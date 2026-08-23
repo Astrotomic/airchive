@@ -33,11 +33,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property-read Collection<int, ConversationSource> $sources
  * @property-read User $user
  *
- * @method static ConversationBuilder<static>|Conversation forPlatform(?string $platform)
- * @method static ConversationBuilder<static>|Conversation forProject(string|int|null $project)
- * @method static ConversationBuilder<static>|Conversation search(string $search)
- * @method static ConversationBuilder<static>|Conversation latestByMessage()
- * @method static ConversationBuilder<static> query()
+ * @method static ConversationBuilder query()
  */
 #[UseEloquentBuilder(ConversationBuilder::class)]
 class Conversation extends Model

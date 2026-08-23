@@ -7,7 +7,6 @@ use Illuminate\Support\Fluent as IlluminateFluent;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use Throwable;
-use TypeError;
 
 /** @extends IlluminateFluent<string, mixed> */
 final class Fluent extends IlluminateFluent

@@ -35,7 +35,7 @@ class ConversationBuilder extends Builder
         });
     }
 
-    public function forPlatform(?string $platform): static
+    public function wherePlatform(?string $platform): static
     {
         if (blank($platform)) {
             return $this;
@@ -48,7 +48,7 @@ class ConversationBuilder extends Builder
         return $this->where('source_platform', $platform);
     }
 
-    public function forProject(int|string|null $project): static
+    public function whereProject(int|string|null $project): static
     {
         if (blank($project)) {
             return $this;

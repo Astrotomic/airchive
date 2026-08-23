@@ -25,7 +25,7 @@ class ConversationIndex extends Component
     {
         $query = Conversation::query()
             ->with('projects:id,name,emoji')
-            ->forPlatform($this->platform)
+            ->wherePlatform($this->platform)
             ->latestByMessage();
 
         return view('livewire.conversation-index', [
