@@ -1,0 +1,47 @@
+{
+  "title": "WordPress help",
+  "conversation_id": "test-conv-1",
+  "current_node": "assistant2",
+  "mapping": {
+    "user1": {
+      "id": "user1",
+      "parent": null,
+      "message": {
+        "id": "user1",
+        "author": { "role": "user" },
+        "content": { "content_type": "text", "parts": ["How do I install WordPress?"] },
+        "create_time": 1700000000
+      }
+    },
+    "assistant1": {
+      "id": "assistant1",
+      "parent": "user1",
+      "message": {
+        "id": "assistant1",
+        "author": { "role": "assistant" },
+        "content": { "content_type": "text", "parts": ["Here is a picture of a dashboard."] },
+        "create_time": 1700000100
+      }
+    },
+    "user2": {
+      "id": "user2",
+      "parent": "user1",
+      "message": {
+        "id": "user2",
+        "author": { "role": "user" },
+        "content": { "content_type": "text", "parts": ["Actually I meant running WordPress locally"] },
+        "create_time": 1700000200
+      }
+    },
+    "assistant2": {
+      "id": "assistant2",
+      "parent": "user2",
+      "message": {
+        "id": "assistant2",
+        "author": { "role": "assistant" },
+        "content": { "content_type": "text", "parts": ["You can run WordPress with Docker for local development."] },
+        "create_time": 1700000300
+      }
+    }
+  }
+}

@@ -1,0 +1,2 @@
+{"role":"user","message":{"content":[{"type":"text","text":"<timestamp>Sunday, Jul 12, 2026</timestamp>\n<user_query>\nHow do I debug a Laravel queue worker?\n</user_query>"}]}}
+{"role":"assistant","message":{"content":[{"type":"text","text":"Check failed_jobs first.\n\n[REDACTED]"},{"type":"tool_use","name":"Read","input":{"path":"/var/log/laravel.log"}},{"type":"thinking","thinking":"The user needs operational guidance."}]}}

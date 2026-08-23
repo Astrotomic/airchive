@@ -1,0 +1,68 @@
+includes:
+    - phpstan-baseline.neon
+
+    # Is loaded automatically when using phpstan/extension-installer
+    # - vendor/larastan/larastan/extension.neon
+
+    # Is loaded automatically when using phpstan/extension-installer
+    # - vendor/ekino/phpstan-banned-code/extension.neon
+
+    - vendor/spaze/phpstan-disallowed-calls/disallowed-dangerous-calls.neon
+    - vendor/spaze/phpstan-disallowed-calls/disallowed-execution-calls.neon
+    - vendor/spaze/phpstan-disallowed-calls/disallowed-loose-calls.neon
+
+rules:
+    - Astrotomic\PHPStan\Rules\ActionRule
+    - Astrotomic\PHPStan\Rules\ConsoleCommandRule
+    - Astrotomic\PHPStan\Rules\ControllerRule
+    - Astrotomic\PHPStan\Rules\DisallowedEvalRule
+    - Astrotomic\PHPStan\Rules\DisallowedExitRule
+    - Astrotomic\PHPStan\Rules\DisallowedFunctionCallRule
+    - Astrotomic\PHPStan\Rules\DisallowedMethodCallRule
+    - Astrotomic\PHPStan\Rules\FormRequestRule
+    - Astrotomic\PHPStan\Rules\JobRule
+    - Astrotomic\PHPStan\Rules\JsonResourceRule
+    - Astrotomic\PHPStan\Rules\ListenerRule
+    - Astrotomic\PHPStan\Rules\ModelRule
+
+parameters:
+    paths:
+        - app
+        - phpstan/Rules
+
+    excludePaths:
+        analyseAndScan:
+            - app/Console/DevCommands/IdeHelperModelsCommand.php
+
+    tmpDir: ./.phpstan
+
+    level: 1
+
+    reportUnmatchedIgnoredErrors: false
+
+    ignoreErrors:
+        # Level 6
+        - identifier: missingType.iterableValue
+        - identifier: missingType.generics
+        - identifier: argument.templateType
+
+    banned_code:
+        nodes:
+            -
+                type: Expr_FuncCall
+                functions:
+                    # debug
+                    - dd
+                    - dump
+                    - ray
+                    - rd
+                    - var_dump
+                    # helper
+                    - auth
+                    - cache
+                    - config
+                    - cookie
+                    - event
+                    - request
+                    - session
+                    - trans

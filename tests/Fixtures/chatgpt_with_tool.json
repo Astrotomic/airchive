@@ -1,0 +1,81 @@
+{
+  "title": "Instagram export",
+  "conversation_id": "test-conv-with-tool",
+  "current_node": "assistant-final",
+  "mapping": {
+    "user": {
+      "id": "user",
+      "parent": null,
+      "message": {
+        "id": "user",
+        "author": { "role": "user" },
+        "content": { "content_type": "text", "parts": ["How can I export Instagram posts?"] },
+        "create_time": 1700000000,
+        "recipient": "all"
+      }
+    },
+    "tool-use": {
+      "id": "tool-use",
+      "parent": "user",
+      "message": {
+        "id": "tool-use",
+        "author": { "role": "assistant" },
+        "content": {
+          "content_type": "code",
+          "language": "json",
+          "text": "{\"search_query\":[{\"q\":\"Instagram export\"}]}"
+        },
+        "create_time": 1700000010,
+        "recipient": "web.run"
+      }
+    },
+    "tool-result": {
+      "id": "tool-result",
+      "parent": "tool-use",
+      "message": {
+        "id": "tool-result",
+        "author": { "role": "tool", "name": "web.run" },
+        "content": { "content_type": "text", "parts": [""] },
+        "metadata": {
+          "search_result_groups": [
+            {
+              "entries": [
+                { "title": "Instagram Help Center", "url": "https://example.com/help" }
+              ]
+            }
+          ]
+        },
+        "create_time": 1700000020,
+        "recipient": "all"
+      }
+    },
+    "assistant-final": {
+      "id": "assistant-final",
+      "parent": "tool-result",
+      "message": {
+        "id": "assistant-final",
+        "author": { "role": "assistant" },
+        "content": {
+          "content_type": "text",
+          "parts": ["Use the account export. citeturn1search0"]
+        },
+        "metadata": {
+          "content_references": [
+            {
+              "matched_text": "citeturn1search0",
+              "type": "grouped_webpages",
+              "alt": "([Instagram](https://example.com/help))"
+            },
+            {
+              "matched_text": " ",
+              "type": "sources_footnote",
+              "alt": ""
+            }
+          ]
+        },
+        "create_time": 1700000030,
+        "recipient": "all"
+      }
+    }
+  }
+}
