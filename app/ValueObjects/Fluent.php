@@ -8,7 +8,7 @@ use Illuminate\Support\Str;
 use InvalidArgumentException;
 use Throwable;
 
-/** @extends IlluminateFluent<string, mixed> */
+/** @extends IlluminateFluent<array-key, mixed> */
 final class Fluent extends IlluminateFluent
 {
     public static function tryFrom(mixed $data): ?static

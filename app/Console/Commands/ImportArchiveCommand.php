@@ -70,13 +70,8 @@ class ImportArchiveCommand extends Command
         $this->line("Import batch: {$batch->id}");
 
         $memoryReserve = str_repeat('x', 1024 * 1024);
-        $finished = false;
 
-        register_shutdown_function(function () use (&$memoryReserve, &$finished, $batch): void {
-            if ($finished) {
-                return;
-            }
-
+        register_shutdown_function(function () use (&$memoryReserve, $batch): void {
             $error = error_get_last();
 
             if (! is_array($error) || ! in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true)) {
@@ -84,7 +79,7 @@ class ImportArchiveCommand extends Command
             }
 
             $memoryReserve = null;
-            $message = (string) ($error['message'] ?? 'Unknown fatal error');
+            $message = (string) $error['message'];
 
             try {
                 ImportBatch::query()->whereKey($batch->id)->update([
@@ -106,14 +101,12 @@ class ImportArchiveCommand extends Command
                 fn (string $message) => $this->line($message),
             );
         } catch (Throwable $exception) {
-            $finished = true;
             $this->newLine();
             $this->components->error('Import failed: '.$exception->getMessage());
 
             return self::FAILURE;
         }
 
-        $finished = true;
         $batch->refresh();
         $duration = $batch->started_at?->diffInSeconds($batch->finished_at, true);
 

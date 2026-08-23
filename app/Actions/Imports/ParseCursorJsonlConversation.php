@@ -263,7 +263,7 @@ class ParseCursorJsonlConversation extends Action
     /**
      * Parse one untrusted tool-use content item.
      */
-    private function toolUseBlock(Fluent $item, int $position): ?CanonicalContentBlock
+    private function toolUseBlock(Fluent $item, int $position): CanonicalContentBlock
     {
         $name = $item->nullString('name') ?? 'tool';
         $input = $item->get('input');

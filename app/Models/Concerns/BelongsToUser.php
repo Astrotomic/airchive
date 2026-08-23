@@ -21,8 +21,8 @@ trait BelongsToUser
         });
 
         static::creating(function (self $model): void {
-            if (Auth::check() && $model->user_id === null) {
-                $model->user_id = Auth::id();
+            if (Auth::check()) {
+                $model->user_id ??= Auth::id();
             }
         });
     }

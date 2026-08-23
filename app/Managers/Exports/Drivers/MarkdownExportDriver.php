@@ -73,7 +73,7 @@ final class MarkdownExportDriver implements ConversationExportDriver
 
     private function renderImageBlock(ContentBlock $block): string
     {
-        $url = $block->text_content ?? $block->attachments->first()?->external_url ?? '';
+        $url = $block->text_content ?? $block->attachments->first()->external_url ?? '';
 
         return $url !== '' ? '![]('.$url.')' : '';
     }

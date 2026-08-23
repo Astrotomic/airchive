@@ -153,7 +153,7 @@ class Attachment extends Model
 
         $stream = Storage::readStream($this->storage_path);
 
-        if ($stream === false) {
+        if (! $stream) {
             return null;
         }
 

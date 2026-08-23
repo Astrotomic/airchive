@@ -96,7 +96,7 @@ class ExportConversations extends Action
                 );
                 $stream = $sourceDisk->readStream($attachment->storage_path);
 
-                if ($stream === false) {
+                if (! $stream) {
                     $unavailableFiles[] = $label;
 
                     return;
