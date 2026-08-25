@@ -43,7 +43,7 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 24
-      - run: npm install --ignore-scripts
+      - run: npm ci
       - run: npm run build
       - run: cp .env.example .env
       - run: php artisan key:generate

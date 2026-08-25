@@ -25,7 +25,6 @@ _ide_helper.php
 Homestead.json
 Homestead.yaml
 Thumbs.db
-package-lock.json
 *.lock
 /.phpstan-tmp/
 /.phpstan/

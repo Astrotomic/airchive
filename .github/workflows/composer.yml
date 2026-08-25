@@ -1,4 +1,4 @@
-name: composer-validate
+name: composer
 
 on:
   push:
