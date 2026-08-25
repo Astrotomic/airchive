@@ -7,13 +7,41 @@ on:
 jobs:
   phpunit:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: airchive
+          POSTGRES_USER: airchive
+          POSTGRES_PASSWORD: airchive
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U airchive -d airchive"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_DATABASE: airchive
+      DB_USERNAME: airchive
+      DB_PASSWORD: airchive
+
     steps:
       - uses: actions/checkout@v7
       - uses: shivammathur/setup-php@v2
         with:
           php-version: 8.5
-          extensions: dom, curl, libxml, mbstring, zip
+          extensions: dom, curl, libxml, mbstring, zip, pdo_pgsql
+          coverage: none
       - run: composer install --prefer-dist --no-interaction --no-scripts
       - run: cp .env.example .env
       - run: php artisan key:generate
-      - run: vendor/bin/phpunit
+      - run: |
+          echo "::add-matcher::${{ runner.tool_cache }}/phpunit.json"
+          vendor/bin/phpunit
