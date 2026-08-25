@@ -38,8 +38,11 @@ class ResolveProjectFromIdentifierAppTest extends AppTestCase
             'source_platform' => 'cursor',
             'identifier_type' => 'cursor_workspace',
             'source_identifier' => 'workspace-1',
-            'metadata' => json_encode(['path' => '/projects/airchive']),
         ]);
+        Assert::assertEquals(
+            ['path' => '/projects/airchive'],
+            $project->sourceIdentifiers()->sole()->metadata,
+        );
     }
 
     public function test_it_reuses_an_existing_identifier_without_changing_the_project(): void
