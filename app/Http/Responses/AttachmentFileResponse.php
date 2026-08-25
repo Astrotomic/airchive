@@ -51,13 +51,13 @@ class AttachmentFileResponse
     private function filename(Attachment $attachment): string
     {
         $filename = str_replace('\\', '/', $attachment->filename ?? '');
-    
+
         if (($position = strrpos($filename, '/')) !== false) {
             $filename = substr($filename, $position + 1);
         }
-    
+
         $filename = preg_replace('/[\x00-\x1F\x7F]+/u', '', $filename) ?? '';
-    
+
         return $filename !== '' ? $filename : 'attachment-'.$attachment->id;
     }
 
