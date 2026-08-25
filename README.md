@@ -1,4 +1,14 @@
-# AIrchive
+# 🗃️ AIrchive
+
+[![MIT License](https://img.shields.io/github/license/Astrotomic/airchive.svg?label=License&color=blue&style=for-the-badge)](https://github.com/Astrotomic/airchive/blob/master/LICENSE)
+[![Offset Earth](https://img.shields.io/badge/Treeware-%F0%9F%8C%B3-green?style=for-the-badge)](https://plant.treeware.earth/Astrotomic/airchive)
+[![Larabelles](https://img.shields.io/badge/Larabelles-%F0%9F%A6%84-lightpink?style=for-the-badge)](https://www.larabelles.com/)
+
+[![composer](https://img.shields.io/github/actions/workflow/status/Astrotomic/airchive/composer.yml?style=flat-square&logoColor=white&logo=github&label=composer)](https://github.com/Astrotomic/airchive/actions?query=workflow%3Acomposer)
+[![phpunit](https://img.shields.io/github/actions/workflow/status/Astrotomic/airchive/phpunit.yml?style=flat-square&logoColor=white&logo=github&label=phpunit)](https://github.com/Astrotomic/airchive/actions?query=workflow%3Aphpunit)
+[![pint](https://img.shields.io/github/actions/workflow/status/Astrotomic/airchive/pint.yml?style=flat-square&logoColor=white&logo=github&label=pint)](https://github.com/Astrotomic/airchive/actions?query=workflow%3Apint)
+[![phpstan](https://img.shields.io/github/actions/workflow/status/Astrotomic/airchive/phpstan.yml?style=flat-square&logoColor=white&logo=github&label=phpstan)](https://github.com/Astrotomic/airchive/actions?query=workflow%3Aphpstan)
+[![prettier](https://img.shields.io/github/actions/workflow/status/Astrotomic/airchive/prettier.yml?style=flat-square&logoColor=white&logo=github&label=prettier)](https://github.com/Astrotomic/airchive/actions?query=workflow%3Aprettier)
 
 Private Laravel app for importing, searching, browsing, and exporting ChatGPT and Cursor chat exports.
 
