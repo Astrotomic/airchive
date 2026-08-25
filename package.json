@@ -18,7 +18,7 @@
         "vite": "^8.0.0"
     },
     "dependencies": {
-        "@laravel/passkeys": "^0.2.0",
+        "@laravel/passkeys": "^0.4.0",
         "tailwindcss": "^4.0.0"
     }
 }
