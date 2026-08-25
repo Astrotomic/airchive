@@ -7,6 +7,12 @@ updates:
     open-pull-requests-limit: 10
     reviewers:
       - "Gummibeer"
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    reviewers:
+      - "Gummibeer"
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
