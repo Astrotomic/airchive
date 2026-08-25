@@ -1,4 +1,3 @@
-
 <div>
     <h1 class="mb-6 text-2xl font-semibold">Account</h1>
 
@@ -37,9 +36,7 @@
                         <dd>{{ auth()->user()->two_factor_recovery_codes ? 'Saved' : 'Not saved' }}</dd>
                     </div>
                 </dl>
-                <p class="mt-4 text-sm text-zinc-500">
-                    Your authenticator app is required when signing in from a new browser session.
-                </p>
+                <p class="mt-4 text-sm text-zinc-500">Your authenticator app is required when signing in from a new browser session.</p>
             @else
                 <p class="mt-2 text-sm text-zinc-600">Not configured.</p>
             @endif
@@ -58,9 +55,15 @@
                     >
                         Register on this browser
                     </a>
-                    <form method="POST" action="{{ route('account.devices.pair') }}">
+                    <form
+                        method="POST"
+                        action="{{ route('account.devices.pair') }}"
+                    >
                         @csrf
-                        <button type="submit" class="rounded-md border border-zinc-300 px-3 py-2 text-sm hover:bg-zinc-50">
+                        <button
+                            type="submit"
+                            class="rounded-md border border-zinc-300 px-3 py-2 text-sm hover:bg-zinc-50"
+                        >
                             Pair another device
                         </button>
                     </form>
@@ -140,10 +143,7 @@
             </div>
 
             @if ($sessionDriver !== 'database')
-                <p class="mt-4 text-sm text-amber-800">
-                    Session details are only available when <code class="rounded bg-amber-100 px-1">SESSION_DRIVER=database</code>.
-                    Current driver: {{ $sessionDriver }}.
-                </p>
+                <p class="mt-4 text-sm text-amber-800">Session details are only available when <code class="rounded bg-amber-100 px-1">SESSION_DRIVER=database</code>. Current driver: {{ $sessionDriver }}.</p>
             @elseif ($sessions->isEmpty())
                 <p class="mt-4 text-sm text-zinc-500">No session records found.</p>
             @else
@@ -157,7 +157,10 @@
                             $locality = implode(', ', array_filter([$ipInfo?->city, $ipInfo?->regionCode]));
                             $estimatedLocation = trim($locality.' '.($ipInfo?->zip ?? ''));
                         @endphp
-                        <div wire:key="session-{{ $session->id }}" class="rounded-md border border-zinc-200 p-4">
+                        <div
+                            wire:key="session-{{ $session->id }}"
+                            class="rounded-md border border-zinc-200 p-4"
+                        >
                             <div class="flex flex-wrap items-start justify-between gap-3">
                                 <div class="min-w-0">
                                     <p class="font-medium">
@@ -175,7 +178,11 @@
                                             <dd>
                                                 {{ $session->ip_address ?: 'Unknown' }}
                                                 @if ($countryFlag)
-                                                    <span title="{{ $ipInfo->countryCode }}" aria-label="{{ $ipInfo->countryCode }}">{{ $countryFlag }}</span>
+                                                    <span
+                                                        title="{{ $ipInfo->countryCode }}"
+                                                        aria-label="{{ $ipInfo->countryCode }}"
+                                                        >{{ $countryFlag }}</span
+                                                    >
                                                 @endif
                                             </dd>
                                         </div>

@@ -39,13 +39,9 @@ Open the signed enrollment URL from the command output on your device, confirm e
 
 For passkeys to work, `APP_URL` must match how you access the app (HTTPS in production).
 
-ChatGPT exports can exceed 1 GB. The application accepts imports up to 2 GB by default; ensure PHP's
-`upload_max_filesize` and `post_max_size` and any reverse-proxy body-size limit are at least as large.
-The application limit can be changed with `IMPORT_MAX_UPLOAD_KILOBYTES`.
+ChatGPT exports can exceed 1 GB. The application accepts imports up to 2 GB by default; ensure PHP's `upload_max_filesize` and `post_max_size` and any reverse-proxy body-size limit are at least as large. The application limit can be changed with `IMPORT_MAX_UPLOAD_KILOBYTES`.
 
-External-source favicons use Google's gstatic service by default. Set `FAVICON_DRIVER` to `gstatic`,
-`unavatar`, or `logo_dev`; Logo.dev additionally requires a publishable `LOGO_DEV_TOKEN`.
-Tracking-parameter and related-host normalization rules can be extended in `config/external-sources.php`.
+External-source favicons use Google's gstatic service by default. Set `FAVICON_DRIVER` to `gstatic`, `unavatar`, or `logo_dev`; Logo.dev additionally requires a publishable `LOGO_DEV_TOKEN`. Tracking-parameter and related-host normalization rules can be extended in `config/external-sources.php`.
 
 To bypass HTTP uploads and the queue, import a local export synchronously:
 
@@ -56,15 +52,11 @@ php artisan archive:import /absolute/path/to/cursor-export-directory --user=user
 php artisan archive:import /absolute/path/to/transcript.jsonl --user=user@example.com
 ```
 
-`--user` accepts either an email address or user ID. It can be omitted when the application contains exactly one user.
-An interrupted import can reuse its existing batch with `--retry=<batch-id>`.
+`--user` accepts either an email address or user ID. It can be omitted when the application contains exactly one user. An interrupted import can reuse its existing batch with `--retry=<batch-id>`.
 
 ## Features
 
-- **Import** — ChatGPT `.json` / complete `.zip` exports (sharded chats, Codex chats, images,
-  uploaded/generated files, Library files, shares, and feedback), individual Cursor agent `.jsonl`,
-  and complete Cursor ZIP/directory exports (transcripts, Canvas, agent-tool output, terminals,
-  images, plans, and other workspace artifacts with message links where Cursor recorded a source path)
+- **Import** — ChatGPT `.json` / complete `.zip` exports (sharded chats, Codex chats, images, uploaded/generated files, Library files, shares, and feedback), individual Cursor agent `.jsonl`, and complete Cursor ZIP/directory exports (transcripts, Canvas, agent-tool output, terminals, images, plans, and other workspace artifacts with message links where Cursor recorded a source path)
 - **Search** — PostgreSQL full-text over message content and conversation titles
 - **Browse** — canonical thread view with optional branch toggle for ChatGPT edits
 - **Library** — private previews, metadata, filtering, downloads, and links back to source chats

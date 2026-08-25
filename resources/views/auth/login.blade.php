@@ -1,23 +1,27 @@
-@extends('layouts.auth')
+@extends ('layouts.auth')
 
-@section('title', 'Sign in — '.config('app.name'))
+@section ('title', 'Sign in — '.config('app.name'))
 
-@section('content')
-    <div class="bg-white shadow-sm rounded-lg p-8 border border-gray-200">
-        <h1 class="text-2xl font-semibold mb-2">Sign in</h1>
-        <p class="text-sm text-gray-600 mb-6">Use your email and passkey to access your archive.</p>
+@section ('content')
+    <div class="rounded-lg border border-gray-200 bg-white p-8 shadow-sm">
+        <h1 class="mb-2 text-2xl font-semibold">Sign in</h1>
+        <p class="mb-6 text-sm text-gray-600">Use your email and passkey to access your archive.</p>
 
         <div class="space-y-4">
             <div>
-                <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <label
+                    for="email"
+                    class="mb-1 block text-sm font-medium text-gray-700"
+                    >Email</label
+                >
                 <input
                     id="email"
                     type="email"
                     name="email"
                     autocomplete="username webauthn"
-                    class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+                    class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-gray-900 focus:outline-none"
                     placeholder="you@example.com"
-                >
+                />
             </div>
 
             <button

@@ -1,16 +1,14 @@
-@props(['block', 'collapseTools' => true])
+@props (['block', 'collapseTools' => true])
 
-@use('App\Enums\BlockType')
+@use ('App\Enums\BlockType')
 
 @if ($block->block_type === BlockType::ToolUse || $block->block_type === BlockType::ToolResult)
     <details
         class="tool-block rounded-lg border border-zinc-200 bg-zinc-50"
-        @unless($collapseTools) open @endunless
+        @unless ($collapseTools) open @endunless
     >
-        <summary class="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-sm font-medium text-zinc-700 [&::-webkit-details-marker]:hidden">
-            <span class="rounded bg-zinc-200 px-2 py-0.5 text-xs uppercase tracking-wide text-zinc-700">
-                {{ $block->toolName() }}
-            </span>
+        <summary class="[&::-webkit-details-marker]:hidden flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-sm font-medium text-zinc-700">
+            <span class="rounded bg-zinc-200 px-2 py-0.5 text-xs tracking-wide text-zinc-700 uppercase"> {{ $block->toolName() }} </span>
             <span class="min-w-0 truncate text-zinc-500">{{ $block->toolSummary() }}</span>
         </summary>
         <div class="border-t border-zinc-200">
@@ -18,7 +16,10 @@
         </div>
     </details>
 @elseif ($block->block_type === BlockType::Reasoning)
-    <details class="rounded-lg border border-violet-200 bg-violet-50" @unless($block->collapsedByDefault()) open @endunless>
+    <details
+        class="rounded-lg border border-violet-200 bg-violet-50"
+        @unless ($block->collapsedByDefault()) open @endunless
+    >
         <summary class="cursor-pointer px-3 py-2 text-sm font-medium text-violet-900">Thinking</summary>
         <div class="message-content border-t border-violet-200 px-3 py-3 text-sm text-violet-950">{{ $block->text_content }}</div>
     </details>

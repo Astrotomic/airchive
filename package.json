@@ -4,12 +4,17 @@
     "type": "module",
     "scripts": {
         "build": "vite build",
-        "dev": "vite"
+        "dev": "vite",
+        "format": "prettier --write \"resources/**/*.{blade.php,css,js}\" \".github/**/*.{yml,yaml}\" \"*.{json,md,yml,yaml}\"",
+        "format:check": "prettier --check \"resources/**/*.{blade.php,css,js}\" \".github/**/*.{yml,yaml}\" \"*.{json,md,yml,yaml}\""
     },
     "devDependencies": {
         "@tailwindcss/vite": "^4.0.0",
         "concurrently": "^9.0.1",
         "laravel-vite-plugin": "^3.1",
+        "prettier": "^3.9.6",
+        "prettier-plugin-blade": "^3.3.0",
+        "prettier-plugin-tailwindcss": "^0.8.1",
         "vite": "^8.0.0"
     },
     "dependencies": {

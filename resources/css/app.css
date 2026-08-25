@@ -5,8 +5,7 @@
 @source '../views/**/*.blade.php';
 
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-        'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
 }
 
 @layer components {
@@ -62,7 +61,10 @@
         text-decoration: none;
         vertical-align: middle;
         box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
-        transition: border-color 150ms, background-color 150ms, color 150ms;
+        transition:
+            border-color 150ms,
+            background-color 150ms,
+            color 150ms;
     }
 
     .markdown-link-chip:hover {

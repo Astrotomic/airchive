@@ -1,23 +1,25 @@
-@extends('layouts.auth')
+@extends ('layouts.auth')
 
-@section('title', 'Register passkey — '.config('app.name'))
+@section ('title', 'Register passkey — '.config('app.name'))
 
-@section('content')
-    <div class="bg-white shadow-sm rounded-lg p-8 border border-gray-200">
-        <h1 class="text-2xl font-semibold mb-2">Register your passkey</h1>
-        <p class="text-sm text-gray-600 mb-6">
-            Create a passkey on this device so you can sign in without passwords.
-        </p>
+@section ('content')
+    <div class="rounded-lg border border-gray-200 bg-white p-8 shadow-sm">
+        <h1 class="mb-2 text-2xl font-semibold">Register your passkey</h1>
+        <p class="mb-6 text-sm text-gray-600">Create a passkey on this device so you can sign in without passwords.</p>
 
         <div class="space-y-4">
             <div>
-                <label for="passkey-name" class="block text-sm font-medium text-gray-700 mb-1">Device name</label>
+                <label
+                    for="passkey-name"
+                    class="mb-1 block text-sm font-medium text-gray-700"
+                    >Device name</label
+                >
                 <input
                     id="passkey-name"
                     type="text"
                     value="New device"
-                    class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
-                >
+                    class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-gray-900 focus:outline-none"
+                />
             </div>
 
             <button
@@ -48,7 +50,7 @@
                 await window.Passkeys.register({ name: nameInput?.value || 'Device' });
                 successEl.textContent = 'Passkey registered. Redirecting…';
                 successEl.classList.remove('hidden');
-                window.location.href = @json(config('passkeys.redirect'));
+                window.location.href = @json (config('passkeys.redirect'));
             } catch (error) {
                 errorEl.textContent = error?.message ?? 'Passkey registration failed.';
                 errorEl.classList.remove('hidden');
