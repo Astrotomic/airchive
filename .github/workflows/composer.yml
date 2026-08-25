@@ -18,3 +18,15 @@ jobs:
         with:
           php-version: 8.5
       - run: composer validate --strict
+
+  normalize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: 8.5
+      - run: composer global require ergebnis/composer-normalize
+      - run: composer normalize --dry-run
