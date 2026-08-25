@@ -40,6 +40,11 @@ jobs:
           extensions: dom, curl, libxml, mbstring, zip, pdo_pgsql
           coverage: none
       - run: composer install --prefer-dist --no-interaction --no-scripts
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - run: npm install --ignore-scripts
+      - run: npm run build
       - run: cp .env.example .env
       - run: php artisan key:generate
       - run: |
