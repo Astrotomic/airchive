@@ -1,6 +1,6 @@
 export default {
     printWidth: 999999,
-    proseWrap: 'never',
+    proseWrap: 'preserve',
     tabWidth: 4,
     singleQuote: true,
     singleAttributePerLine: true,
