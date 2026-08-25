@@ -47,7 +47,10 @@ jobs:
       - run: npm run build
       - run: cp .env.example .env
       - run: php artisan key:generate
-      - run: php artisan optimize
+      - run: php artisan event:cache
+      - run: php artisan route:cache
+      - run: php artisan view:cache
       - run: |
           echo "::add-matcher::${{ runner.tool_cache }}/phpunit.json"
           vendor/bin/phpunit
+      - run: php artisan optimize
